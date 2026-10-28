@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stick Climber 86</title>
+    <link rel="stylesheet" href="src/styles.css" />
+  </head>
+  <body>
+    <main class="game-shell">
+      <section class="hud" aria-label="game status">
+        <div>
+          <span class="label">HEIGHT</span>
+          <strong id="height">0F</strong>
+        </div>
+        <div>
+          <span class="label">SCORE</span>
+          <strong id="score">000000</strong>
+        </div>
+        <div>
+          <span class="label">LIVES</span>
+          <strong id="lives">3</strong>
+        </div>
+        <div>
+          <span class="label">COMBO</span>
+          <strong id="combo">0</strong>
+        </div>
+        <div>
+          <span class="label">BEAT</span>
+          <strong id="beatJudge">---</strong>
+        </div>
+        <div>
+          <span class="label">PAD</span>
+          <strong id="padStatus">WAIT</strong>
+        </div>
+      </section>
+
+      <div class="game-stage">
+        <img id="birdBriefing" src="/assets/images/bird-briefing.png" alt="" hidden />
+        <div id="teaser" class="teaser" role="button" tabindex="0" aria-label="ティーザーを進める">
+          <img src="assets/images/bunshin-logo.png" alt="BUNSHIN" />
+          <span>PRESS ANY BUTTON</span>
+        </div>
+        <canvas id="game" width="960" height="640" aria-label="Stick Climber game canvas"></canvas>
+        <div id="opening" class="opening">
+          <img src="assets/images/rhythmic-climber-title-v3.png" alt="リズミッククライマー" />
+          <p>Press A / Start / Space<br /><span>to start</span></p>
+          <div class="stage-select" aria-label="Test stage selection">
+            <label for="stageSelect">TEST BUILDING</label>
+            <select id="stageSelect">
+              <option value="1">BUILDING 1 - 50F</option>
+              <option value="2">BUILDING 2 - 75F</option>
+              <option value="3">BUILDING 3 - 100F</option>
+              <option value="4">BUILDING 4 - 125F</option>
+              <option value="5">BUILDING 5 - 150F</option>
+              <option value="6">BUILDING 6 - 175F</option>
+            </select>
+            <button type="button" onclick="startSelectedStage()">START TEST</button>
+          </div>
+          <button id="openingMusic" class="opening-music" type="button" onclick="startMusic()">&#9654; 音楽を再生</button>
+        </div>
+      </div>
+
+      <section class="controls" aria-label="Audio mix">
+        <label>BGM <input id="bgmVolume" type="range" min="0" max="100" value="90" oninput="setAudioVolume('bgm', this.value / 100)" /></label>
+        <label>Hi! <input id="voiceVolume" type="range" min="0" max="100" value="18" oninput="setAudioVolume('voice', this.value / 100)" /></label>
+        <label>SE <input id="sfxVolume" type="range" min="0" max="100" value="100" oninput="setAudioVolume('sfx', this.value / 100)" /></label>
+      </section>
+
+      <section class="controls" aria-label="controls">
+        <div>
+          <strong>Xbox Controller</strong>
+          <span>左スティックで左手、右スティックで右手。BPMに合わせて交互に上へ。A / Startで再開。</span>
+        </div>
+        <div>
+          <strong>Keyboard</strong>
+          <span>WASD = 左手、矢印キー = 右手、Space = 再開。</span>
+        </div>
+      </section>
+    </main>
+
+    <script src="src/main.js"></script>
+  </body>
+</html>
