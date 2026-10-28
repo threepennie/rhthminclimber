@@ -51,6 +51,18 @@ if (pixelCanvas !== canvas && typeof ctx.setTransform === "function") {
   ctx.setTransform(1 / pixelScale, 0, 0, 1 / pixelScale, 0, 0);
 }
 const teaser = document.querySelector("#teaser");
+const sniperSprites = {
+  left: document.querySelector("#sniperLeft"),
+  right: document.querySelector("#sniperRight"),
+};
+const tysonSprites = [document.querySelector("#tysonL01"), document.querySelector("#tysonL02")];
+const tysonJabSprites = [
+  document.querySelector("#tysonJab01"), document.querySelector("#tysonJab02"), document.querySelector("#tysonJab03"),
+];
+const tysonStraightSprites = [
+  document.querySelector("#tysonStraight01"), document.querySelector("#tysonStraight02"), document.querySelector("#tysonStraight03"),
+];
+const tysonBriefingSprite = document.querySelector("#tysonBriefing");
 const birdBriefingSprite = document.querySelector("#birdBriefing");
 
 function presentPixelFrame() {
@@ -158,12 +170,12 @@ const sniperFireAge = 2.5;
 const technoBass = [55, 55, 65.41, 55, 49, 49, 65.41, 73.42];
 const technoStab = [220, 0, 261.63, 0, 196, 0, 293.66, 0, 220, 0, 261.63, 0, 196, 0, 329.63, 0];
 const stageHazardBriefingMap = {
-  1: [{ id: "vase", label: "TRANSFORMER" }, { id: "beam", label: "REINFORCEMENT" }],
-  2: [{ id: "shirt", label: "CABLE BUNDLE" }, { id: "dumbbell", label: "TOOL MODULE" }],
-  3: [{ id: "bird", label: "PATROL DRONE" }, { id: "pinkBeam", label: "REBOUND FRAME" }],
-  4: [{ id: "wind", label: "EXHAUST DRAFT" }],
-  5: [{ id: "sniper", label: "SENTINEL TURRET" }],
-  6: [{ id: "tyson", label: "HYDRAULIC ARM" }],
+  1: [{ id: "vase", label: "VASE" }, { id: "beam", label: "STEEL BEAM" }],
+  2: [{ id: "shirt", label: "T-SHIRT" }, { id: "dumbbell", label: "DUMBBELL" }],
+  3: [{ id: "bird", label: "BIRD" }, { id: "pinkBeam", label: "PINK BEAM" }],
+  4: [{ id: "wind", label: "WIND" }],
+  5: [{ id: "sniper", label: "SNIPER" }],
+  6: [{ id: "tyson", label: "TIKE MYSON" }],
 };
 
 function stageHazardBriefings(stage) {
@@ -1121,7 +1133,7 @@ function hitByDropping() {
   state.splatTimer = 1.2;
   state.sluggishMoves = 10;
   state.inputBlockEvents = 3 + Math.floor(Math.random() * 3);
-  state.message = "COOLANT!";
+  state.message = "SPLAT!";
 }
 
 function dropFiveFloors() {
@@ -1496,11 +1508,11 @@ function tysonPunchStartCol(tyson) {
 }
 
 function tysonJabFrameIndex(tyson) {
-  return Math.min(2, Math.floor(tyson.phaseTime / tysonJabFrameDuration));
+  return Math.min(tysonJabSprites.length - 1, Math.floor(tyson.phaseTime / tysonJabFrameDuration));
 }
 
 function tysonStraightFrameIndex(tyson) {
-  return Math.min(2, Math.floor(tyson.phaseTime / tysonJabFrameDuration));
+  return Math.min(tysonStraightSprites.length - 1, Math.floor(tyson.phaseTime / tysonJabFrameDuration));
 }
 
 function tysonPunchCanHit(tyson) {
@@ -1508,7 +1520,8 @@ function tysonPunchCanHit(tyson) {
 }
 
 function tysonPunchDuration(tyson) {
-  return tysonJabFrameDuration * 3;
+  const sprites = tyson.phase === "jab" ? tysonJabSprites : tysonStraightSprites;
+  return tysonJabFrameDuration * sprites.length;
 }
 
 function updateTysons(dt) {
@@ -1880,7 +1893,7 @@ function update(dt) {
   state.climber.freezeTimer = Math.max(0, state.climber.freezeTimer - dt);
   state.slipTimer = Math.max(0, state.slipTimer - dt);
   state.splatTimer = Math.max(0, state.splatTimer - dt);
-  if (state.splatTimer <= 0 && state.message === "COOLANT!") state.message = "";
+  if (state.splatTimer <= 0 && state.message === "SPLAT!") state.message = "";
   state.shake = Math.max(0, state.shake - dt);
   state.beatFlash = Math.max(0, state.beatFlash - dt);
   state.judgementAge += dt;
@@ -1981,7 +1994,7 @@ function drawBuilding() {
     for (let col = 0; col < cols; col += 1) {
       if (isTysonShaftCell(col, row)) continue;
       const p = gridToScreen(col, row);
-      drawSignalAnchor(p, getWindow(col, row).openness);
+      drawWindow(p, getWindow(col, row).openness);
     }
   }
   if (showStageTop) {
@@ -1998,32 +2011,23 @@ function drawBuilding() {
   }
 }
 
-function drawSignalAnchor(p, openness) {
+function drawWindow(p, openness) {
   const active = openness > 0.58;
-  const coreColor = active ? "#38d5ff" : "#4a1523";
-  const energyColor = active ? "#b8f4ff" : "#7d2939";
+  const glassColor = active ? "#57b9dd" : "#57321e";
+  const lightColor = active ? "#b9efff" : "#75452e";
   const frameX = p.x - windowW / 2;
   const frameY = p.y - windowH / 2;
 
-  ctx.fillStyle = "#071c2a";
+  ctx.fillStyle = "#111719";
   ctx.fillRect(frameX, frameY, windowW, windowH);
-  ctx.fillStyle = "#123548";
+  ctx.fillStyle = "#26383d";
   ctx.fillRect(frameX + windowFrame, frameY + windowFrame, windowW - windowFrame * 2, windowH - windowFrame * 2);
-
-  // A single vertical relay core makes each cell read as exterior hardware, not glass.
-  ctx.fillStyle = "#071c2a";
-  ctx.fillRect(p.x - 10, frameY + 4, 20, windowH - 8);
-  ctx.fillStyle = coreColor;
-  ctx.fillRect(p.x - 6, frameY + 7, 12, windowH - 14);
-  ctx.fillStyle = energyColor;
-  ctx.fillRect(p.x - 3, frameY + 9, 6, 8);
-
-  ctx.fillStyle = coreColor;
-  ctx.fillRect(frameX + 5, p.y - 3, 14, 6);
-  ctx.fillRect(frameX + windowW - 19, p.y - 3, 14, 6);
-  ctx.fillStyle = "#071c2a";
-  ctx.fillRect(frameX + 8, p.y - 1, 8, 2);
-  ctx.fillRect(frameX + windowW - 16, p.y - 1, 8, 2);
+  ctx.fillStyle = glassColor;
+  ctx.fillRect(frameX + windowFrame + 3, frameY + windowFrame + 3, windowW - windowFrame * 2 - 6, windowH - windowFrame * 2 - 6);
+  ctx.fillStyle = lightColor;
+  ctx.fillRect(frameX + windowFrame + 7, frameY + windowFrame + 3, 6, windowH - windowFrame * 2 - 6);
+  ctx.fillStyle = active ? "#d9fbff" : "#2c1b16";
+  ctx.fillRect(frameX + windowW - 18, frameY + windowFrame + 4, 4, windowH - windowFrame * 2 - 8);
 }
 
 function strokeLimb(points, width, color) {
@@ -2345,75 +2349,62 @@ function drawTrussBeam(x, y, palette) {
 }
 
 function drawTransformerUnit(x, y) {
-  ctx.fillStyle = "#14272f";
-  ctx.fillRect(x - 21, y - 19, 42, 38);
-  ctx.fillStyle = "#31515b";
-  ctx.fillRect(x - 17, y - 15, 34, 30);
-  ctx.fillStyle = "#6f97a3";
-  ctx.fillRect(x - 13, y - 11, 26, 22);
-  ctx.fillStyle = "#3faee0";
-  ctx.fillRect(x - 7, y - 8, 14, 16);
-  ctx.fillStyle = "#c8f4ff";
-  ctx.fillRect(x - 3, y - 6, 6, 8);
-  ctx.fillStyle = "#f0c64a";
-  ctx.fillRect(x - 17, y - 18, 34, 4);
-  ctx.fillRect(x - 17, y + 14, 34, 4);
-  ctx.fillStyle = "#14272f";
-  ctx.fillRect(x - 11, y - 18, 6, 4);
-  ctx.fillRect(x + 5, y - 18, 6, 4);
-  ctx.fillRect(x - 11, y + 14, 6, 4);
-  ctx.fillRect(x + 5, y + 14, 6, 4);
-  ctx.fillStyle = "#a9d4de";
-  ctx.fillRect(x - 27, y - 10, 6, 20);
-  ctx.fillRect(x + 21, y - 10, 6, 20);
+  ctx.fillStyle = "#172126";
+  ctx.fillRect(x - 19, y - 18, 38, 38);
+  ctx.fillStyle = "#c96e3b";
+  ctx.fillRect(x - 15, y - 2, 30, 19);
+  ctx.fillStyle = "#e08a4c";
+  ctx.fillRect(x - 11, y + 2, 22, 9);
+  ctx.fillStyle = "#63b96d";
+  ctx.fillRect(x - 12, y - 14, 10, 15);
+  ctx.fillRect(x + 2, y - 17, 11, 18);
+  ctx.fillStyle = "#96d77f";
+  ctx.fillRect(x - 7, y - 10, 7, 9);
+  ctx.fillRect(x + 7, y - 13, 7, 12);
 }
 
 function drawToolModule(x, y) {
-  ctx.fillStyle = "#18252c";
-  ctx.fillRect(x - 24, y - 16, 48, 32);
-  ctx.fillStyle = "#ff8d3a";
-  ctx.fillRect(x - 20, y - 12, 40, 24);
-  ctx.fillStyle = "#cf542f";
-  ctx.fillRect(x - 16, y - 8, 32, 16);
-  ctx.fillStyle = "#b9d4d8";
-  ctx.fillRect(x - 28, y - 9, 8, 18);
-  ctx.fillRect(x + 20, y - 9, 8, 18);
-  ctx.fillStyle = "#47c0e6";
-  ctx.fillRect(x - 5, y - 5, 10, 10);
-  ctx.fillStyle = "#d9fbff";
-  ctx.fillRect(x - 2, y - 4, 4, 4);
+  ctx.fillStyle = "#111719";
+  ctx.fillRect(x - 31, y - 9, 62, 18);
+  ctx.fillStyle = "#6e7782";
+  ctx.fillRect(x - 26, y - 4, 52, 8);
+  ctx.fillStyle = "#2c333a";
+  ctx.fillRect(x - 35, y - 17, 12, 34);
+  ctx.fillRect(x + 23, y - 17, 12, 34);
+  ctx.fillStyle = "#aeb8bf";
+  ctx.fillRect(x - 31, y - 13, 8, 26);
+  ctx.fillRect(x + 23, y - 13, 8, 26);
 }
 
 function drawCableBundle(cable) {
   const p = gridToScreen(cable.col, cable.row);
   ctx.save();
-  ctx.translate(p.x - 18, p.y - 12);
-  ctx.rotate(-0.18);
-  ctx.fillStyle = "#0c1920";
-  ctx.fillRect(-36, -26, 96, 8);
-  ctx.fillStyle = "#6f97a3";
-  ctx.fillRect(-31, -23, 86, 3);
-  ctx.fillStyle = "#172f3b";
-  ctx.fillRect(-19, -15, 8, 47); ctx.fillRect(3, -15, 8, 47); ctx.fillRect(25, -15, 8, 47);
-  ctx.fillStyle = "#3faee0";
-  ctx.fillRect(-16, -15, 3, 43); ctx.fillRect(6, -15, 3, 43); ctx.fillRect(28, -15, 3, 43);
-  ctx.fillStyle = "#f0c64a";
-  ctx.fillRect(-23, 25, 16, 11); ctx.fillRect(-1, 25, 16, 11); ctx.fillRect(21, 25, 16, 11);
+  ctx.translate(p.x, p.y - 9);
+  ctx.fillStyle = "#121719";
+  ctx.fillRect(-27, -23, 54, 11);
+  ctx.fillStyle = "#f4f1e7";
+  ctx.fillRect(-23, -12, 46, 40);
+  ctx.fillRect(-37, -8, 14, 23);
+  ctx.fillRect(23, -8, 14, 23);
+  ctx.fillStyle = "#ce3f39";
+  ctx.fillRect(-11, -12, 22, 31);
+  ctx.fillRect(-19, 4, 38, 8);
+  ctx.fillStyle = "#d7d3c8";
+  ctx.fillRect(-8, 19, 16, 9);
   ctx.restore();
 }
 
 function drawFallingCableBundle(x, y) {
   ctx.save();
   ctx.translate(x, y);
-  ctx.rotate(0.22);
-  ctx.fillStyle = "#0c1920";
-  ctx.fillRect(-29, -20, 58, 8);
-  ctx.fillStyle = "#172f3b";
-  ctx.fillRect(-20, -12, 9, 43); ctx.fillRect(-3, -12, 9, 43); ctx.fillRect(14, -12, 9, 43);
-  ctx.fillStyle = "#3faee0";
-  ctx.fillRect(-17, -12, 3, 38); ctx.fillRect(0, -12, 3, 38); ctx.fillRect(17, -12, 3, 38);
-  ctx.fillStyle = "#f0c64a";
-  ctx.fillRect(-24, 25, 17, 11); ctx.fillRect(-7, 25, 17, 11); ctx.fillRect(10, 25, 17, 11);
+  ctx.rotate(0.17);
+  ctx.fillStyle = "#f4f1e7";
+  ctx.fillRect(-20, -18, 40, 37);
+  ctx.fillRect(-32, -13, 12, 23);
+  ctx.fillRect(20, -13, 12, 23);
+  ctx.fillStyle = "#ce3f39";
+  ctx.fillRect(-9, -18, 18, 29);
+  ctx.fillRect(-16, -1, 32, 8);
   ctx.restore();
 }
 
@@ -2422,28 +2413,25 @@ function drawToolDropper(resident) {
   const reveal = Math.min(1, resident.age / 0.2, (1.5 - resident.age) / 0.2);
   ctx.save();
   ctx.translate(p.x, p.y + 18 * (1 - reveal));
-  ctx.fillStyle = "#172126";
-  ctx.fillRect(-27, -36, 54, 58);
-  ctx.fillStyle = "#2b5f78";
-  ctx.fillRect(-21, -1, 42, 27);
-  ctx.fillStyle = "#1a3441";
-  ctx.fillRect(-21, 19, 42, 7);
-  ctx.fillStyle = "#35515d";
-  ctx.fillRect(-18, -31, 36, 30);
-  ctx.fillStyle = "#172126";
-  ctx.fillRect(-21, -36, 42, 10);
-  ctx.fillRect(-21, -27, 7, 11);
-  ctx.fillRect(14, -27, 7, 11);
-  ctx.fillStyle = "#47c0e6";
-  ctx.fillRect(-7, -22, 14, 10);
-  ctx.fillStyle = "#d9fbff";
-  ctx.fillRect(-3, -20, 6, 4);
+  ctx.fillStyle = "#111719";
+  ctx.fillRect(-25, -34, 50, 60);
+  ctx.fillStyle = "#c9825c";
+  ctx.fillRect(-12, -29, 24, 22);
+  ctx.fillStyle = "#151a1f";
+  ctx.fillRect(-14, -34, 28, 8);
+  ctx.fillStyle = "#f6e15f";
+  ctx.fillRect(-6, -20, 4, 4);
+  ctx.fillRect(4, -20, 4, 4);
+  ctx.fillStyle = "#496575";
+  ctx.fillRect(-19, -5, 38, 31);
+  ctx.fillStyle = "#283841";
+  ctx.fillRect(-19, 20, 38, 6);
   const handY = resident.dropped ? 18 : 2;
-  ctx.fillStyle = "#ff8d3a";
-  ctx.fillRect(17, handY, 21, 8);
-  ctx.fillRect(31, handY + 8, 8, 14);
-  ctx.fillRect(-38, handY + 9, 21, 8);
-  ctx.fillRect(-39, handY + 17, 8, 12);
+  ctx.fillStyle = "#c9825c";
+  ctx.fillRect(17, handY, 18, 8);
+  ctx.fillRect(29, handY + 8, 8, 14);
+  ctx.fillRect(-35, handY + 9, 18, 8);
+  ctx.fillRect(-36, handY + 17, 8, 12);
   if (!resident.dropped) drawToolModule(48, 4);
   ctx.restore();
 }
@@ -2462,7 +2450,7 @@ function drawObstacles() {
       drawTransformerUnit(p.x, p.y);
     } else if (item.type === "b") {
       drawTrussBeam(p.x, p.y, {
-        outline: "#2a3540", body: "#6f97a3", highlight: "#b9e4ec", brace: "#334a55",
+        outline: "#26211a", body: "#d8aa38", highlight: "#f4d55a", brace: "#765a20",
       });
     } else if (item.type === "d") {
       drawFallingCableBundle(p.x, p.y);
@@ -2473,20 +2461,16 @@ function drawObstacles() {
       ctx.translate(p.x, p.y);
       if (item.bounceState !== "falling") ctx.rotate(item.bounceTime * 18);
       drawTrussBeam(0, 0, {
-        outline: "#25304b", body: "#5369b4", highlight: "#91d1ff", brace: "#2c396c",
+        outline: "#44243e", body: "#db5e91", highlight: "#ffb2d0", brace: "#7b365c",
       });
       ctx.restore();
     } else {
-      ctx.fillStyle = "#14232c";
-      ctx.fillRect(p.x - 10, p.y - 14, 20, 28);
-      ctx.fillStyle = "#317b99";
-      ctx.fillRect(p.x - 7, p.y - 10, 14, 20);
-      ctx.fillStyle = "#66ddff";
-      ctx.fillRect(p.x - 4, p.y - 8, 8, 12);
-      ctx.fillStyle = "#d9fbff";
-      ctx.fillRect(p.x - 2, p.y - 6, 4, 5);
-      ctx.fillStyle = "#e85d91";
-      ctx.fillRect(p.x - 7, p.y + 9, 14, 4);
+      ctx.fillStyle = "#402619";
+      ctx.fillRect(p.x - 11, p.y - 7, 22, 14);
+      ctx.fillRect(p.x - 6, p.y - 12, 12, 24);
+      ctx.fillStyle = "#8a4e29";
+      ctx.fillRect(p.x - 7, p.y - 5, 14, 10);
+      ctx.fillRect(p.x - 3, p.y - 9, 6, 18);
     }
   }
 }
@@ -2498,32 +2482,27 @@ function drawObstacleActors() {
     ctx.save();
     ctx.translate(bird.x, bird.y);
     ctx.scale(bird.direction, 1);
-    const rotorOffset = Math.sin(bird.age * 24) > 0 ? -4 : 4;
-    ctx.fillStyle = "#111d25";
-    ctx.fillRect(-49, -6, 98, 12);
-    ctx.fillRect(-34, -19, 68, 38);
-    ctx.fillStyle = "#526976";
-    ctx.fillRect(-54, -14 + rotorOffset, 26, 5);
-    ctx.fillRect(28, -14 - rotorOffset, 26, 5);
-    ctx.fillRect(-45, -18 + rotorOffset, 8, 14);
-    ctx.fillRect(37, -18 - rotorOffset, 8, 14);
-    ctx.fillStyle = "#263b47";
-    ctx.fillRect(-28, -14, 56, 28);
-    ctx.fillStyle = "#47c0e6";
-    ctx.fillRect(-20, -8, 15, 12);
-    ctx.fillRect(7, -8, 15, 12);
-    ctx.fillStyle = "#d9fbff";
-    ctx.fillRect(-16, -6, 7, 4);
-    ctx.fillRect(11, -6, 7, 4);
-    ctx.fillStyle = "#e85d91";
-    ctx.fillRect(-5, 9, 10, 7);
-    ctx.fillStyle = "#91d1ff";
-    ctx.fillRect(-2, 16, 4, 9);
+    const wingUp = Math.sin(bird.age * 20) > 0;
+    ctx.fillStyle = "#1c2530";
+    ctx.fillRect(-43, -7, 86, 14);
+    ctx.fillRect(-27, -17, 48, 32);
+    ctx.fillStyle = "#f1f4f2";
+    ctx.fillRect(-23, -10, 42, 22);
+    ctx.fillRect(17, -6, 20, 14);
+    ctx.fillRect(-37, wingUp ? -27 : 4, 31, 11);
+    ctx.fillRect(-5, wingUp ? -34 : 9, 30, 11);
+    ctx.fillStyle = "#d2d9dc";
+    ctx.fillRect(-33, wingUp ? -23 : 7, 25, 6);
+    ctx.fillRect(-3, wingUp ? -30 : 12, 25, 6);
+    ctx.fillStyle = "#eea543";
+    ctx.fillRect(35, -2, 11, 6);
+    ctx.fillStyle = "#172126";
+    ctx.fillRect(21, -6, 4, 4);
+    ctx.fillStyle = "#6c3d22";
+    ctx.fillRect(-3, 16, 8, 8);
     ctx.restore();
   }
-  for (const arm of state.tysons) drawHydraulicArm(arm);
   for (const sniper of state.snipers) {
-    drawSentinelTurret(sniper);
     if (sniper.target && !sniper.fired && sniper.reticleVisible) {
       const target = gridToScreen(sniper.target.col, sniper.target.row);
       ctx.strokeStyle = "#f6e15f";
@@ -2543,70 +2522,71 @@ function drawObstacleActors() {
   }
 }
 
-function drawSentinelTurret(turret) {
-  const p = gridToScreen(turret.col, turret.row);
-  const facing = turret.facing || (state.climber.col < turret.col ? "left" : "right");
-  const reveal = Math.min(1, turret.age / 0.2, (sniperFireAge + 0.8 - turret.age) / 0.2);
-  ctx.save();
-  ctx.translate(p.x, p.y + 16 * (1 - reveal));
-  ctx.scale(facing === "left" ? -1 : 1, 1);
-  ctx.fillStyle = "#0c1820";
-  ctx.fillRect(-32, -26, 64, 52);
-  ctx.fillStyle = "#263d49";
-  ctx.fillRect(-26, -20, 52, 40);
-  ctx.fillStyle = "#4a6370";
-  ctx.fillRect(-20, -16, 30, 32);
-  ctx.fillStyle = "#10191f";
-  ctx.fillRect(4, -11, 46, 22);
-  ctx.fillStyle = "#66ddff";
-  ctx.fillRect(11, -7, 32, 14);
-  ctx.fillStyle = "#d9fbff";
-  ctx.fillRect(15, -4, 14, 6);
-  ctx.fillStyle = "#e85d91";
-  ctx.fillRect(-13, -7, 13, 14);
-  ctx.fillStyle = "#f7cf4c";
-  ctx.fillRect(-9, -3, 5, 6);
-  ctx.fillStyle = "#172a34";
-  ctx.fillRect(-23, 20, 46, 7);
-  ctx.restore();
+function drawSharpSniperSprites(wobble, zoom, pivot) {
+  screenCtx.save();
+  screenCtx.translate(pivot.x, pivot.y);
+  screenCtx.scale(zoom, zoom);
+  screenCtx.translate(-pivot.x, -pivot.y);
+  screenCtx.translate(wobble, 0);
+  screenCtx.imageSmoothingEnabled = true;
+  for (const sniper of state.snipers) {
+    const p = gridToScreen(sniper.col, sniper.row);
+    const facing = sniper.facing || (state.climber.col < sniper.col ? "left" : "right");
+    const sprite = sniperSprites[facing];
+    if (!sprite || !sprite.complete || sprite.naturalWidth <= 0) continue;
+    const reveal = Math.min(1, sniper.age / 0.2, (sniperFireAge + 0.8 - sniper.age) / 0.2);
+    screenCtx.globalAlpha = reveal;
+    screenCtx.drawImage(sprite, p.x - 47, p.y - 35, 94, 70);
+  }
+  screenCtx.restore();
 }
 
-function drawHydraulicArm(arm) {
-  const lane = tysonLanes[arm.lane];
-  const p = gridToScreen(lane.punchFromCol, arm.row);
-  const phaseFrame = arm.phase === "jab" ? tysonJabFrameIndex(arm) : tysonStraightFrameIndex(arm);
-  const reach = arm.phase === "standby" ? 0 : arm.phase === "jab" ? (phaseFrame + 1) * 0.8 : arm.reach;
-  const baseX = arm.lane === "left" ? buildingX + (lane.columns[1] + 1) * colW : buildingX + lane.columns[0] * colW;
-  const armLength = Math.max(0, reach * colW - 10);
-  const blink = arm.phase !== "standby" && phaseFrame % 2 === 0;
-  ctx.save();
-  ctx.translate(baseX, p.y);
-  ctx.scale(lane.direction, 1);
-  ctx.fillStyle = "#0d1720";
-  ctx.fillRect(-44, -34, 48, 68);
-  ctx.fillStyle = "#263d49";
-  ctx.fillRect(-38, -28, 36, 56);
-  ctx.fillStyle = "#526976";
-  ctx.fillRect(-31, -22, 22, 44);
-  ctx.fillStyle = "#10191f";
-  ctx.fillRect(-4, -13, 25, 26);
-  ctx.fillStyle = "#4a6370";
-  ctx.fillRect(12, -9, armLength, 18);
-  ctx.fillStyle = "#d9fbff";
-  ctx.fillRect(16, -5, Math.max(0, armLength - 12), 5);
-  ctx.fillStyle = "#172a34";
-  for (let x = 34; x < armLength; x += 28) ctx.fillRect(x, -12, 6, 24);
-  if (armLength > 0) {
-    ctx.fillStyle = "#10191f";
-    ctx.fillRect(14 + armLength, -18, 17, 36);
-    ctx.fillStyle = "#f7cf4c";
-    ctx.fillRect(18 + armLength, -14, 9, 28);
+function tysonSpritePlacement(tyson) {
+  const lane = tysonLanes[tyson.lane];
+  const rows = tysonShaftRows(tyson);
+  const height = cellH * 8;
+  const width = height * 3700 / 1536;
+  const shaftX = buildingX + lane.columns[0] * colW;
+  const shaftWidth = lane.columns.length * colW;
+  const bottom = gridToScreen(lane.columns[0], rows.bottom).y + cellH / 2;
+  return {
+    x: lane.direction > 0 ? shaftX - 14 : shaftX + shaftWidth - width + 14,
+    y: bottom - height,
+    width,
+    height,
+    mirror: lane.direction < 0,
+  };
+}
+
+function drawSharpTysonSprites(wobble, zoom, pivot) {
+  if (!state.tysons.length) return;
+  screenCtx.save();
+  screenCtx.translate(pivot.x, pivot.y);
+  screenCtx.scale(zoom, zoom);
+  screenCtx.translate(-pivot.x, -pivot.y);
+  screenCtx.translate(wobble, 0);
+  screenCtx.imageSmoothingEnabled = false;
+  for (const tyson of state.tysons) {
+    const punchSprites = tyson.phase === "jab" ? tysonJabSprites
+      : tyson.phase === "straight" ? tysonStraightSprites : null;
+    const sprites = punchSprites || tysonSprites;
+    const frame = tyson.phase === "jab" ? tysonJabFrameIndex(tyson)
+      : tyson.phase === "straight" ? tysonStraightFrameIndex(tyson)
+        : Math.floor(tyson.phaseTime / 0.26) % sprites.length;
+    const sprite = sprites[frame];
+    if (!sprite || !sprite.complete || sprite.naturalWidth <= 0) continue;
+    const placement = tysonSpritePlacement(tyson);
+    if (placement.mirror) {
+      screenCtx.save();
+      screenCtx.translate(placement.x + placement.width, 0);
+      screenCtx.scale(-1, 1);
+      screenCtx.drawImage(sprite, 0, placement.y, placement.width, placement.height);
+      screenCtx.restore();
+    } else {
+      screenCtx.drawImage(sprite, placement.x, placement.y, placement.width, placement.height);
+    }
   }
-  ctx.fillStyle = blink ? "#f7cf4c" : "#66ddff";
-  ctx.fillRect(-26, -17, 11, 11);
-  ctx.fillStyle = "#e85d91";
-  ctx.fillRect(-38, 25, 36, 7);
-  ctx.restore();
+  screenCtx.restore();
 }
 
 function drawWindWarning() {
@@ -2620,7 +2600,7 @@ function drawWindWarning() {
   ctx.fillStyle = "#66ddff";
   ctx.font = "28px 'Press Start 2P', monospace";
   const labelY = Math.min(canvas.height - 105, player.y + 82);
-  ctx.fillText("DRAFT!", player.x, labelY);
+  ctx.fillText("WIND!", player.x, labelY);
   ctx.font = "34px 'Press Start 2P', monospace";
   arrowRows.forEach((row, index) => {
     const offset = (index / arrowRows.length) * travel;
@@ -2650,14 +2630,14 @@ function drawOverlay() {
     return;
   }
   if (state.mode === "play" && !state.message) return;
-  if (state.mode === "play" && state.message === "COOLANT!") {
+  if (state.mode === "play" && state.message === "SPLAT!") {
     const opacity = state.splatTimer / 1.2;
     ctx.fillStyle = `rgba(5, 9, 10, ${0.55 * opacity})`;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = `rgba(246, 241, 223, ${opacity})`;
     ctx.textAlign = "center";
     ctx.font = "32px 'Press Start 2P', monospace";
-    ctx.fillText("COOLANT!", canvas.width / 2, 238);
+    ctx.fillText("SPLAT!", canvas.width / 2, 238);
     return;
   }
   if (state.mode === "over") {
@@ -2751,25 +2731,19 @@ function drawStageHazardIcon(id, x, y) {
       context.fillRect(x + 30, y + offset - 9, 12, 18);
     }
   } else if (id === "sniper") {
-    context.fillStyle = "#0c1820"; context.fillRect(x - 38, y - 26, 58, 52);
-    context.fillStyle = "#263d49"; context.fillRect(x - 32, y - 20, 46, 40);
-    context.fillStyle = "#4a6370"; context.fillRect(x - 25, y - 16, 25, 32);
-    context.fillStyle = "#10191f"; context.fillRect(x - 1, y - 10, 49, 20);
-    context.fillStyle = "#66ddff"; context.fillRect(x + 8, y - 6, 34, 12);
-    context.fillStyle = "#d9fbff"; context.fillRect(x + 14, y - 3, 13, 5);
-    context.fillStyle = "#e85d91"; context.fillRect(x - 18, y - 6, 12, 12);
-    context.fillStyle = "#f7cf4c"; context.fillRect(x - 14, y - 2, 5, 5);
+    context.fillStyle = "#57321e"; context.fillRect(x - 48, y - 30, 96, 60);
+    context.fillStyle = "#111719"; context.fillRect(x - 44, y - 26, 88, 52);
+    context.fillStyle = "#7f4a2c"; context.fillRect(x - 39, y - 21, 78, 42);
+    context.fillStyle = "#151a1f"; context.fillRect(x - 6, y - 18, 12, 36);
+    context.fillStyle = "#d07a3a"; context.fillRect(x - 28, y - 14, 26, 18);
+    context.fillStyle = "#1b1818"; context.fillRect(x - 21, y - 10, 30, 8);
   } else if (id === "tyson") {
-    context.fillStyle = "#0d1720"; context.fillRect(x - 48, y - 31, 42, 62);
-    context.fillStyle = "#263d49"; context.fillRect(x - 42, y - 25, 30, 50);
-    context.fillStyle = "#526976"; context.fillRect(x - 35, y - 19, 17, 38);
-    context.fillStyle = "#10191f"; context.fillRect(x - 10, y - 12, 22, 24);
-    context.fillStyle = "#4a6370"; context.fillRect(x + 8, y - 8, 51, 16);
-    context.fillStyle = "#d9fbff"; context.fillRect(x + 14, y - 4, 32, 5);
-    context.fillStyle = "#172a34"; context.fillRect(x + 30, y - 11, 5, 22);
-    context.fillStyle = "#f7cf4c"; context.fillRect(x + 56, y - 15, 9, 30);
-    context.fillStyle = "#66ddff"; context.fillRect(x - 32, y - 16, 10, 10);
-    context.fillStyle = "#e85d91"; context.fillRect(x - 42, y + 24, 34, 7);
+    context.fillStyle = "#151719"; context.fillRect(x - 44, y - 32, 88, 64);
+    context.fillStyle = "#c06a44"; context.fillRect(x - 29, y - 20, 44, 42);
+    context.fillStyle = "#ea9a70"; context.fillRect(x - 12, y - 46, 28, 28);
+    context.fillStyle = "#111418"; context.fillRect(x - 17, y - 53, 40, 12);
+    context.fillStyle = "#b8322f"; context.fillRect(x + 12, y - 8, 35, 28);
+    context.fillStyle = "#232936"; context.fillRect(x - 34, y + 24, 68, 11);
   }
 }
 
@@ -2777,19 +2751,26 @@ function drawStageHazardBriefing() {
   if (state.mode !== "briefing") return;
   const hazards = stageHazardBriefings(state.stage);
   if (!hazards.length) return;
-  const cardW = 148;
-  const cardH = 104;
+  const imageBriefing = state.stage === 5 || state.stage === 6;
+  const cardW = imageBriefing ? 230 : 148;
+  const cardH = imageBriefing ? 224 : 104;
   const gap = 16;
   const total = hazards.length * cardW + (hazards.length - 1) * gap;
   const startX = (canvas.width - total) / 2;
-  const y = 270;
+  const y = imageBriefing ? 246 : 270;
   screenCtx.save();
   screenCtx.imageSmoothingEnabled = false;
   hazards.forEach((hazard, index) => {
     const x = startX + index * (cardW + gap);
     screenCtx.fillStyle = "#10191dcc"; screenCtx.fillRect(x, y, cardW, cardH);
     screenCtx.strokeStyle = "#f7cf4c"; screenCtx.lineWidth = 2; screenCtx.strokeRect(x, y, cardW, cardH);
-    drawStageHazardIcon(hazard.id, x + cardW / 2, y + 45);
+    const sprite = hazard.id === "sniper" ? sniperSprites.left : tysonBriefingSprite;
+    if (imageBriefing && sprite?.complete && sprite.naturalWidth > 0) {
+      screenCtx.imageSmoothingEnabled = true;
+      screenCtx.drawImage(sprite, x + 14, y + 8, cardW - 28, 166);
+    } else {
+      drawStageHazardIcon(hazard.id, x + cardW / 2, y + 45);
+    }
     drawSharpText(hazard.label, x + cardW / 2, y + cardH - 14, "10px 'Press Start 2P', monospace", "#f6f1df");
   });
   screenCtx.restore();
@@ -2804,7 +2785,7 @@ function drawSharpWindText() {
   screenCtx.save();
   screenCtx.textAlign = "center";
   const labelY = Math.min(canvas.height - 105, player.y + 82);
-  drawSharpText("DRAFT!", player.x, labelY, "28px 'Press Start 2P', monospace", "#66ddff");
+  drawSharpText("WIND!", player.x, labelY, "28px 'Press Start 2P', monospace", "#f6f1df");
   for (let index = 0; index < arrowRows.length; index += 1) {
     const offset = (index / arrowRows.length) * travel;
     const x = state.wind.direction < 0
@@ -2819,8 +2800,8 @@ function drawSharpOverlayText() {
   if (state.mode === "falling" || (state.mode === "play" && !state.message)) return;
   screenCtx.save();
   screenCtx.textAlign = "center";
-  if (state.mode === "play" && state.message === "COOLANT!") {
-    drawSharpText("COOLANT!", canvas.width / 2, 238, "32px 'Press Start 2P', monospace", "#f6f1df", state.splatTimer / 1.2);
+  if (state.mode === "play" && state.message === "SPLAT!") {
+    drawSharpText("SPLAT!", canvas.width / 2, 238, "32px 'Press Start 2P', monospace", "#f6f1df", state.splatTimer / 1.2);
     screenCtx.restore();
     return;
   }
@@ -3032,6 +3013,8 @@ function draw() {
   drawBeatMeter();
   drawOverlay();
   presentPixelFrame();
+  drawSharpSniperSprites(wobble, zoom, pivot);
+  drawSharpTysonSprites(wobble, zoom, pivot);
   suppressPixelText = false;
   drawSharpTextLayer();
 

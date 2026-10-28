@@ -19,32 +19,36 @@ test('game renderer keeps high resolution with a coarse grid and thick pixel-lik
   assert.match(styles, /width: min\(100%, 960px\)/);
   assert.match(index, /id="birdBriefing" src="\/assets\/images\/bird-briefing\.png"/);
   assert.match(index, /rhythmic-climber-title-v3\.png/);
-  assert.doesNotMatch(index, /id="tyson/);
-  assert.match(source, /function drawHydraulicArm\(/);
+  assert.match(index, /id="sniperLeft" src="\/assets\/images\/sniper-left\.png"/);
+  assert.match(index, /id="sniperRight" src="\/assets\/images\/sniper-right\.png"/);
+  assert.match(index, /id="tysonL01" src="\/assets\/images\/tyson-l01\.png"/);
+  assert.match(index, /id="tysonStraight03" src="\/assets\/images\/tyson-straight-03\.png"/);
+  assert.match(source, /function drawSharpSniperSprites\(/);
+  assert.match(source, /function drawSharpTysonSprites\(/);
   assert.match(source, /const briefingShirtRed = "#c83f3a"/);
   assert.match(source, /const birdBriefingSprite = document\.querySelector\("#birdBriefing"\)/);
   assert.match(source, /function tysonJabFrameIndex\(/);
   assert.match(source, /function tysonStraightFrameIndex\(/);
-  assert.match(source, /function drawSentinelTurret\(/);
+  assert.doesNotMatch(source, /function drawSentinelTurret\(/);
   assert.match(index, /id="sfxVolume"/);
   assert.match(index, /setAudioVolume\('sfx', this\.value \/ 100\)/);
   assert.match(styles, /\[aria-label="Audio mix"\]/);
-  assert.doesNotMatch(source, /ctx\.drawImage\(sprite/);
+  assert.match(source, /screenCtx\.drawImage\(sprite/);
   assert.match(fs.readFileSync('server.js', 'utf8'), /"\.png": "image\/png"/);
 });
 
-test('tower facade uses blue active and dark red offline signal anchors instead of window panes', () => {
+test('tower facade uses blue open and dark brown closed windows', () => {
   const source = fs.readFileSync('src/main.js', 'utf8');
   const run = game();
-  assert.match(source, /function drawSignalAnchor\(/);
-  run(`window.anchorColors = [];
-    Object.defineProperty(ctx, 'fillStyle', { set(value) { window.anchorColors.push(value); }, get() { return ''; } });
+  assert.match(source, /function drawWindow\(/);
+  run(`window.windowColors = [];
+    Object.defineProperty(ctx, 'fillStyle', { set(value) { window.windowColors.push(value); }, get() { return ''; } });
     ctx.fillRect = () => {};
-    drawSignalAnchor({ x: 480, y: 320 }, 1);
-    drawSignalAnchor({ x: 480, y: 320 }, 0);`);
-  assert.equal(run("window.anchorColors.includes('#38d5ff')"), true);
-  assert.equal(run("window.anchorColors.includes('#4a1523')"), true);
-  assert.equal(run("window.anchorColors.includes('#071c2a')"), true);
+    drawWindow({ x: 480, y: 320 }, 1);
+    drawWindow({ x: 480, y: 320 }, 0);`);
+  assert.equal(run("window.windowColors.includes('#57b9dd')"), true);
+  assert.equal(run("window.windowColors.includes('#57321e')"), true);
+  assert.equal(run("window.windowColors.includes('#111719')"), true);
 });
 
 function game() {
@@ -540,7 +544,7 @@ test('stage four wind releases most towels and shifts iron dumbbells', () => {
   assert.equal(run('state.obstacles.find((item) => item.type === "f").col'), 3);
 });
 
-test('patrol drones move independently and snap coolant drops to the nearest anchor column', () => {
+test('birds move independently and snap droppings to the nearest window column', () => {
   const run = game();
   run('state.stage = 3; Math.random = () => 0.17; spawnObstacle(); state.birds[0].x = buildingX + 100; state.birds[0].dropTimer = 0; updateObstacleActors(0.1)');
   assert.ok(run('state.birds[0].x > buildingX + 100'));
@@ -550,7 +554,7 @@ test('patrol drones move independently and snap coolant drops to the nearest anc
   assert.equal(run('state.birds.length'), 0);
 });
 
-test('tool dropper and patrol-drone sequences render and reset on the next stage', () => {
+test('dumbbell thrower and bird sequences render and reset on the next stage', () => {
   const run = game();
   run(`state.stage = 3; state.birds = [{ x: 350, y: 60, direction: -1, age: 0.3, dropTimer: 1 }];
     state.residents = [{ col: 2, row: 8, age: 0.4, dropped: false }];
@@ -561,23 +565,22 @@ test('tool dropper and patrol-drone sequences render and reset on the next stage
   assert.equal(run('state.residents.length'), 0);
 });
 
-test('cable bundles and tool droppers use distinct tower-equipment silhouettes', () => {
+test('T-shirts, dumbbells and birds use distinct silhouettes', () => {
   const source = fs.readFileSync('src/main.js', 'utf8');
   const transformer = source.slice(source.indexOf('function drawTransformerUnit'), source.indexOf('function drawDumbbell'));
   const toolModule = source.slice(source.indexOf('function drawToolModule'), source.indexOf('function drawCableBundle'));
   assert.match(source, /function drawCableBundle\(/);
   assert.match(source, /function drawFallingCableBundle\(/);
-  assert.match(source, /ctx\.rotate\(-0\.18\)/);
+  assert.match(source, /ctx\.fillRect\(-37, -8, 14, 23\)/);
   assert.match(source, /function drawToolDropper\(/);
   assert.match(source, /drawToolModule\(48, 4\)/);
-  assert.match(source, /ctx\.fillRect\(x - 24, y - 16, 48, 32\)/);
-  assert.match(source, /const rotorOffset = Math\.sin\(bird\.age \* 24\)/);
-  assert.match(source, /ctx\.fillRect\(-49, -6, 98, 12\)/);
-  assert.doesNotMatch(transformer, /#20272a/);
-  assert.doesNotMatch(toolModule, /#11181c/);
+  assert.match(source, /const wingUp = Math\.sin\(bird\.age \* 20\) > 0/);
+  assert.match(source, /ctx\.fillRect\(-23, -10, 42, 22\)/);
+  assert.match(transformer, /#c96e3b/);
+  assert.match(toolModule, /#6e7782/);
 });
 
-test('cable and patrol-drone actors do not appear before their configured stages', () => {
+test('T-shirts and birds do not appear before their configured stages', () => {
   const run = game();
   run('state.stage = 1; Math.random = () => 0.2; spawnObstacle()');
   assert.equal(run('state.residents.length'), 0);
@@ -603,7 +606,7 @@ test('hazards unlock on their planned stages', () => {
   assert.equal(run('state.snipers.length'), 1);
 });
 
-test('sentinel turrets occupy a closed anchor without an orange backdrop', () => {
+test('snipers occupy a closed window without an orange backdrop', () => {
   const source = fs.readFileSync('src/main.js', 'utf8');
   const run = game();
   run('state.stage = 5; state.camera = 0; state.climber.row = 5; Math.random = () => 0.01; spawnSniper()');
@@ -612,7 +615,7 @@ test('sentinel turrets occupy a closed anchor without an orange backdrop', () =>
   assert.doesNotMatch(source, /fillStyle = "#e47c2c"/);
 });
 
-test('stage five sentinel turret fixes its target before firing and only tests impact once', () => {
+test('stage five sniper fixes its target before firing and only tests impact once', () => {
   const run = game();
   run('state.mode = "play"; state.stage = 5; state.climber.col = 4; state.climber.row = 9; state.hands.left = { col: 4, row: 9 }; state.hands.right = { col: 4, row: 9 }; state.snipers = [{ col: 2, row: 13, age: 0, target: null, fired: false }]; window.falls = 0; fallToGround = () => { window.falls += 1; }; updateSnipers(1.01)');
   assert.equal(run('state.snipers[0].target.col'), 4);
@@ -625,7 +628,7 @@ test('stage five sentinel turret fixes its target before firing and only tests i
   assert.equal(run('window.falls'), 0);
 });
 
-test('stage six creates eight-floor service shafts and reaches across the expected span', () => {
+test('stage six creates eight-floor Tyson shafts and punches across the expected reach', () => {
   const run = game();
   run('state.stage = 5;');
   assert.equal(run('isTysonShaftCell(1, 10)'), false);
@@ -645,7 +648,7 @@ test('stage six creates eight-floor service shafts and reaches across the expect
   assert.equal(run("tysonPunchEndCol({ lane: 'right', reach: 6 })"), 0);
 });
 
-test('hydraulic arm standby is safe and only short or long reach applies a hit', () => {
+test('Tyson standby is safe and only jab or straight applies a punch hit', () => {
   const run = game();
   run(`state.mode = 'play'; state.stage = 6; state.lives = 3;
     state.climber = { col: 4, row: 10, hurtTimer: 0, freezeTimer: 0 };
@@ -659,7 +662,7 @@ test('hydraulic arm standby is safe and only short or long reach applies a hit',
   assert.equal(run('state.lives'), 2);
 });
 
-test('hydraulic short reach only hits on its second and third animation frames', () => {
+test('Tyson jab only hits on its second and third animation frames', () => {
   const run = game();
   assert.equal(run("tysonJabFrameIndex({ phaseTime: 0.01 })"), 0);
   assert.equal(run("tysonJabFrameIndex({ phaseTime: 0.13 })"), 1);
@@ -669,7 +672,7 @@ test('hydraulic short reach only hits on its second and third animation frames',
   assert.equal(run("tysonPunchCanHit({ phase: 'jab', phaseTime: 0.25 })"), true);
 });
 
-test('hydraulic short reach leaves the far safety lane open while long reach reaches it', () => {
+test('Tyson jab leaves the far safety lane open while straight reaches it', () => {
   const run = game();
   run(`state.mode = 'play'; state.stage = 6; state.lives = 3;
     state.climber = { col: 7, row: 10, hurtTimer: 0, freezeTimer: 0 };
@@ -681,7 +684,7 @@ test('hydraulic short reach leaves the far safety lane open while long reach rea
   assert.equal(run('state.mode'), 'falling');
 });
 
-test('hydraulic long reach is dangerous across six cells during all three animation frames', () => {
+test('Tyson straight is dangerous across six cells during all three animation frames', () => {
   const run = game();
   assert.equal(run("tysonStraightFrameIndex({ phaseTime: 0.01 })"), 0);
   assert.equal(run("tysonStraightFrameIndex({ phaseTime: 0.13 })"), 1);
@@ -702,7 +705,7 @@ test('hydraulic long reach is dangerous across six cells during all three animat
   }
 });
 
-test('stage six fixes the hydraulic service shafts at floors 40 through 47', () => {
+test('stage six fixes the Tyson block at floors 40 through 47', () => {
   const run = game();
   run("state.stage = 6; window.tyson = { lane: 'left' }; positionTyson(window.tyson);");
   assert.equal(run('window.tyson.row'), 43);
@@ -710,13 +713,13 @@ test('stage six fixes the hydraulic service shafts at floors 40 through 47', () 
   assert.equal(run('tysonShaftRows(window.tyson).top'), 47);
 });
 
-test('stage five sentinel turret kills only when the fixed impact cell is occupied at firing', () => {
+test('stage five sniper kills only when the fixed impact cell is occupied at firing', () => {
   const run = game();
   run('state.mode = "play"; state.stage = 5; state.climber.col = 4; state.climber.row = 9; state.hands.left = { col: 4, row: 9 }; state.hands.right = { col: 4, row: 9 }; state.snipers = [{ col: 2, row: 13, age: 1, target: { col: 4, row: 9 }, fired: false }]; window.falls = 0; fallToGround = () => { window.falls += 1; }; updateSnipers(1.51)');
   assert.equal(run('window.falls'), 1);
 });
 
-test('sentinel reticle blink interval accelerates during the 1.5-second countdown', () => {
+test('sniper reticle blink interval accelerates during the 1.5-second countdown', () => {
   const run = game();
   run('window.slow = sniperReticlePeriod({ age: 1, target: { col: 4, row: 9 }, fired: false }); window.fast = sniperReticlePeriod({ age: 2.45, target: { col: 4, row: 9 }, fired: false }); state.snipers = [{ col: 2, row: 13, age: 1, target: { col: 4, row: 9 }, fired: false, reticleVisible: true, reticleTimer: 0.01 }]; updateSnipers(0.02); window.afterFirstBlink = state.snipers[0].reticleVisible; updateSnipers(0.2); window.stillAiming = Boolean(state.snipers[0].target) && !state.snipers[0].fired');
   assert.ok(run('window.fast < window.slow'));
@@ -757,10 +760,10 @@ test('droppings duration counts only successful body movement', () => {
   assert.equal(run('state.inputBlockEvents'), 0);
 });
 
-test('COOLANT overlay fades with time and clears without movement', () => {
+test('SPLAT overlay fades with time and clears without movement', () => {
   const run = game();
   run('navigator = { getGamepads: () => [] }; state.mode = "play"; windowOpen = () => true; state.spawnTimer = 99; hitByDropping(); ctx.fillRect = () => {}; ctx.fillText = () => {}; update(0.6); drawOverlay()');
-  assert.equal(run('state.message'), 'COOLANT!');
+  assert.equal(run('state.message'), 'SPLAT!');
   assert.equal(run('ctx.fillStyle'), 'rgba(246, 241, 223, 0.5)');
   run('update(0.61)');
   assert.equal(run('state.message'), '');
@@ -919,7 +922,7 @@ test('recovery and next stage clear temporary penalties without erasing earned s
     run(`state.mode = 'play'; state.music.context = null; state.score = 12345; state.stagePenalty = 30000;
       fallToGround(); state.sluggishMoves = 8; state.inputBlockEvents = 4;
       state.climber.freezeTimer = 1; state.climber.hurtTimer = 1;
-      state.slipTimer = 0.4; state.splatTimer = 1; state.message = 'COOLANT!';
+      state.slipTimer = 0.4; state.splatTimer = 1; state.message = 'SPLAT!';
       state.wind = { timeUntil: 0, warning: 1, active: 0.4, direction: -1 };
       state.hands.left.cooldown = 0.3; state.hands.right.upBuffer = 0.24;
       ${nextStage ? 'beginNextStage()' : 'updateFalling(1.26)'};`);
@@ -1001,7 +1004,7 @@ test('climber leg poses follow a single raised or sideways hand', () => {
   assert.equal(run("handGripPosition('right', { col: 4, row: state.climber.row }, state.climber.row, 27, 18).x > gridToScreen(4, state.climber.row).x + 16"), true);
 });
 
-test('reinforcement frames render repeated truss braces and transformer units use a technical palette', () => {
+test('steel frames render repeated truss braces and vases use plant colors', () => {
   const run = game();
   run(`window.braceStrokes = 0; window.colors = [];
     Object.defineProperty(ctx, 'fillStyle', { set(value) { window.colors.push(value); }, get() { return ''; } });
@@ -1014,11 +1017,11 @@ test('reinforcement frames render repeated truss braces and transformer units us
     state.obstacles = [{ type: 'a', col: 4, row: 8, sway: 0 }]; drawObstacles();`);
   assert.ok(run('window.braceStrokes >= 2'));
   assert.equal(run('window.braceStrokes'), run('window.trussStrokes'));
-  assert.equal(run("window.colors.includes('#3faee0')"), true);
-  assert.equal(run("window.colors.includes('#6f97a3')"), true);
+  assert.equal(run("window.colors.includes('#63b96d')"), true);
+  assert.equal(run("window.colors.includes('#d8aa38')"), true);
 });
 
-test('tool dropper uses a readable sensor and equipment palette', () => {
+test('dumbbell thrower uses a readable person and equipment palette', () => {
   const run = game();
   run(`window.colors = [];
     Object.defineProperty(ctx, 'fillStyle', { set(value) { window.colors.push(value); }, get() { return ''; } });
@@ -1027,8 +1030,8 @@ test('tool dropper uses a readable sensor and equipment palette', () => {
     state.residents = [{ col: 4, row: 8, age: 0.8, dropped: false }];
     state.birds = [];
     drawObstacleActors();`);
-  assert.equal(run("window.colors.includes('#47c0e6')"), true);
-  assert.equal(run("window.colors.includes('#ff8d3a')"), true);
+  assert.equal(run("window.colors.includes('#c9825c')"), true);
+  assert.equal(run("window.colors.includes('#6e7782')"), true);
 });
 
 test('title input stays locked for half a second after game over return', () => {
@@ -1181,13 +1184,13 @@ test('stage briefings show only the hazards introduced by that building', () => 
   assert.equal(run("stageHazardBriefings(1).map((hazard) => hazard.id).join(',')"), 'vase,beam');
   assert.equal(run("stageHazardBriefings(2).map((hazard) => hazard.id).join(',')"), 'shirt,dumbbell');
   assert.equal(run("stageHazardBriefings(3).map((hazard) => hazard.id).join(',')"), 'bird,pinkBeam');
-  assert.equal(run("stageHazardBriefings(3).map((hazard) => hazard.label).join(',')"), 'PATROL DRONE,REBOUND FRAME');
+  assert.equal(run("stageHazardBriefings(3).map((hazard) => hazard.label).join(',')"), 'BIRD,PINK BEAM');
   assert.equal(run("stageHazardBriefings(4).map((hazard) => hazard.id).join(',')"), 'wind');
-  assert.equal(run("stageHazardBriefings(4)[0].label"), 'EXHAUST DRAFT');
+  assert.equal(run("stageHazardBriefings(4)[0].label"), 'WIND');
   assert.equal(run("stageHazardBriefings(5).map((hazard) => hazard.id).join(',')"), 'sniper');
-  assert.equal(run("stageHazardBriefings(5)[0].label"), 'SENTINEL TURRET');
+  assert.equal(run("stageHazardBriefings(5)[0].label"), 'SNIPER');
   assert.equal(run("stageHazardBriefings(6).map((hazard) => hazard.id).join(',')"), 'tyson');
-  assert.equal(run('stageHazardBriefings(6)[0].label'), 'HYDRAULIC ARM');
+  assert.equal(run('stageHazardBriefings(6)[0].label'), 'TIKE MYSON');
   assert.equal(run('stageHazardBriefings(7).length'), 0);
 });
 
