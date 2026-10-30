@@ -37,6 +37,13 @@ test('game renderer keeps high resolution with a coarse grid and thick pixel-lik
   assert.match(fs.readFileSync('server.js', 'utf8'), /"\.png": "image\/png"/);
 });
 
+test('document title and Open Graph title use the game name', () => {
+  const index = fs.readFileSync('index.html', 'utf8');
+  assert.match(index, /<title>リズミッククライマー<\/title>/);
+  assert.match(index, /property="og:title" content="リズミッククライマー"/);
+  assert.doesNotMatch(index, /<title>Stick Climber 86<\/title>/);
+});
+
 test('tower facade uses blue open and dark brown closed windows', () => {
   const source = fs.readFileSync('src/main.js', 'utf8');
   const run = game();
