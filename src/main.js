@@ -163,7 +163,7 @@ const tysonLanes = {
   left: { columns: [1, 2], punchFromCol: 2, direction: 1 },
   right: { columns: [5, 6], punchFromCol: 5, direction: -1 },
 };
-const tysonBlockBottomByStage = { 6: 40 };
+const tysonBlockBottomsByStage = { 6: [40, 100, 160] };
 const sniperTestChance = 0.16;
 const sniperAimAge = 1;
 const sniperFireAge = 2.5;
@@ -742,8 +742,8 @@ function updateStageBriefing(dt) {
   if (state.briefing.time >= stageBriefingDuration) beginStageIntro();
 }
 
-function resetGame(selectedStage = 1) {
-  const stage = Math.max(1, Math.floor(Number(selectedStage) || 1));
+function resetGame() {
+  const stage = 1;
   resetTemporaryEffects();
   state.stageDamaged = false;
   document.querySelector("#opening").hidden = true;
@@ -785,11 +785,6 @@ function resetGame(selectedStage = 1) {
   state.escapeWindow = null;
   state.spawnTimer = 8;
   beginStageBriefing();
-}
-
-function startSelectedStage() {
-  const selector = document.querySelector("#stageSelect");
-  resetGame(selector ? selector.value : 1);
 }
 
 function beginNextStage() {
@@ -928,20 +923,46 @@ function windowOpen(col, row) {
   return getWindow(col, row).openness > 0;
 }
 
-function tysonShaftRows() {
-  const bottom = tysonBlockBottom();
+function tysonShaftRows(block = tysonBlockBottom()) {
+  const bottom = typeof block === "object" ? block.blockBottom : block;
   return { bottom, top: bottom + 7 };
 }
 
+function tysonBlockBottoms(stage = state.stage) {
+  return tysonBlockBottomsByStage[stage] ?? (stage >= tysonStartStage ? [40, 100, 160] : []);
+}
+
 function tysonBlockBottom(stage = state.stage) {
-  return tysonBlockBottomByStage[stage] ?? 40;
+  return tysonBlockBottoms(stage)[0] ?? 40;
 }
 
 function isTysonShaftCell(col, row) {
   if (state.stage < tysonStartStage) return false;
-  const rows = tysonShaftRows();
-  return Object.values(tysonLanes).some((lane) =>
-    lane.columns.includes(col) && row >= rows.bottom && row <= rows.top);
+  return tysonBlockBottoms().some((bottom) => {
+    const rows = tysonShaftRows(bottom);
+    return Object.values(tysonLanes).some((lane) =>
+      lane.columns.includes(col) && row >= rows.bottom && row <= rows.top);
+  });
+}
+
+function activeTysonBlock() {
+  if (state.stage < tysonStartStage) return null;
+  const visibleTopRow = state.camera + (canvas.height - 118) / cellH;
+  const visibleBottomRow = state.camera - 1;
+  const bottoms = tysonBlockBottoms();
+  const playerBottom = bottoms.find((candidate) =>
+    state.climber.row >= candidate && state.climber.row <= candidate + 7);
+  const bottom = Number.isFinite(playerBottom) ? playerBottom : bottoms.find((candidate) =>
+    visibleTopRow >= candidate && visibleBottomRow <= candidate + 7);
+  return Number.isFinite(bottom) ? { bottom, top: bottom + 7 } : null;
+}
+
+function tysonHazardPause() {
+  const block = activeTysonBlock();
+  if (!block) return { birds: false, dumbbells: false, snipers: false, wind: false };
+  if (block.bottom === 40) return { birds: true, dumbbells: true, snipers: true, wind: true };
+  if (block.bottom === 100) return { birds: true, dumbbells: true, snipers: false, wind: false };
+  return { birds: false, dumbbells: false, snipers: false, wind: false };
 }
 
 function towelAt(col, row) {
@@ -1327,11 +1348,12 @@ function updateBodyMovement(moveContext) {
 
 function spawnObstacle() {
   const roll = Math.random();
-  if (state.stage >= sniperStartStage && roll < sniperTestChance) {
+  const paused = tysonHazardPause();
+  if (!paused.snipers && state.stage >= sniperStartStage && roll < sniperTestChance) {
     spawnSniper();
     return;
   }
-  if (state.stage >= 3 && roll < 0.18) {
+  if (!paused.birds && state.stage >= 3 && roll < 0.18) {
     const direction = Math.random() < 0.5 ? 1 : -1;
     state.birds.push({ x: direction === 1 ? buildingX - 60 : buildingX + buildingW + 60,
       y: 60, direction, age: 0, dropTimer: 0.8 + Math.random() });
@@ -1342,7 +1364,7 @@ function spawnObstacle() {
     spawnHangingTowel();
     return;
   }
-  if (state.stage >= towelAndDumbbellStartStage && roll < 0.4) {
+  if (!paused.dumbbells && state.stage >= towelAndDumbbellStartStage && roll < 0.4) {
     spawnDumbbellThrower();
     return;
   }
@@ -1473,9 +1495,9 @@ function tysonPunchEndCol(tyson) {
   return Math.max(0, Math.min(cols - 1, lane.punchFromCol + lane.direction * tyson.reach));
 }
 
-function createTyson() {
+function createTyson(blockBottom = tysonBlockBottom()) {
   const tyson = { lane: "left", row: state.climber.row + 5, phase: "standby", phaseTime: 0,
-    reach: 2, hit: false, moveTimer: 1.2 };
+    reach: 2, hit: false, moveTimer: 1.2, blockBottom };
   positionTyson(tyson);
   tyson.phase = "standby";
   tyson.phaseTime = 0;
@@ -1485,7 +1507,8 @@ function createTyson() {
 
 function positionTyson(tyson) {
   tyson.lane = Math.random() < 0.5 ? "left" : "right";
-  tyson.row = tysonBlockBottom() + 3;
+  tyson.blockBottom ??= tysonBlockBottom();
+  tyson.row = tyson.blockBottom + 3;
   tyson.phase = "standby";
   tyson.phaseTime = 0;
   tyson.reach = 0;
@@ -1498,8 +1521,9 @@ function tysonPunchHitsClimber(tyson) {
   const endCol = tysonPunchEndCol(tyson);
   const minCol = Math.min(fromCol, endCol);
   const maxCol = Math.max(fromCol, endCol);
+  const hitRow = tyson.row + 1;
   return [state.climber, state.hands.left, state.hands.right].some((part) =>
-    part.row === tyson.row && part.col >= minCol && part.col <= maxCol);
+    part.row === hitRow && part.col >= minCol && part.col <= maxCol);
 }
 
 function tysonPunchStartCol(tyson) {
@@ -1529,8 +1553,13 @@ function updateTysons(dt) {
     state.tysons = [];
     return;
   }
-  if (!state.tysons.length) {
-    state.tysons.push(createTyson());
+  const block = activeTysonBlock();
+  if (!block) {
+    state.tysons = [];
+    return;
+  }
+  if (!state.tysons.length || state.tysons[0].blockBottom !== block.bottom) {
+    state.tysons = [createTyson(block.bottom)];
   }
   for (const tyson of state.tysons) {
     tyson.phaseTime += dt;
@@ -1555,36 +1584,41 @@ function updateTysons(dt) {
 }
 
 function updateObstacleActors(dt) {
+  const paused = tysonHazardPause();
   for (const towel of [...state.towels]) {
     towel.dropTimer -= dt;
     if (towel.dropTimer <= 0) releaseTowel(towel);
   }
-  for (const resident of state.residents) {
-    resident.age += dt;
-    if (!resident.dropped && resident.age >= 0.8) {
-      resident.dropped = true;
-      state.obstacles.push({ type: "f", col: resident.col, row: resident.row,
-        speed: 2.8, sway: 0, drift: 0, driftTimer: 0 });
-    }
-  }
-  state.residents = state.residents.filter((resident) => resident.age < 1.5);
-  for (const bird of state.birds) {
-    bird.age += dt;
-    bird.x += bird.direction * 100 * dt;
-    bird.dropTimer -= dt;
-    if (bird.dropTimer <= 0) {
-      if (bird.x >= buildingX && bird.x <= buildingX + buildingW) {
-        const col = Math.max(0, Math.min(cols - 1, Math.round((bird.x - buildingX) / colW - 0.5)));
-        state.obstacles.push({ type: "c", col,
-          row: state.camera + (canvas.height - 118 - bird.y - 12) / cellH,
-          speed: 2.15, sway: 0 });
-        playPoopDropSound();
+  if (!paused.dumbbells) {
+    for (const resident of state.residents) {
+      resident.age += dt;
+      if (!resident.dropped && resident.age >= 0.8) {
+        resident.dropped = true;
+        state.obstacles.push({ type: "f", col: resident.col, row: resident.row,
+          speed: 2.8, sway: 0, drift: 0, driftTimer: 0 });
       }
-      bird.dropTimer = 0.8 + Math.random();
     }
+    state.residents = state.residents.filter((resident) => resident.age < 1.5);
   }
-  state.birds = state.birds.filter((bird) => bird.x > -80 && bird.x < canvas.width + 80);
-  updateSnipers(dt);
+  if (!paused.birds) {
+    for (const bird of state.birds) {
+      bird.age += dt;
+      bird.x += bird.direction * 100 * dt;
+      bird.dropTimer -= dt;
+      if (bird.dropTimer <= 0) {
+        if (bird.x >= buildingX && bird.x <= buildingX + buildingW) {
+          const col = Math.max(0, Math.min(cols - 1, Math.round((bird.x - buildingX) / colW - 0.5)));
+          state.obstacles.push({ type: "c", col,
+            row: state.camera + (canvas.height - 118 - bird.y - 12) / cellH,
+            speed: 2.15, sway: 0 });
+          playPoopDropSound();
+        }
+        bird.dropTimer = 0.8 + Math.random();
+      }
+    }
+    state.birds = state.birds.filter((bird) => bird.x > -80 && bird.x < canvas.width + 80);
+  }
+  if (!paused.snipers) updateSnipers(dt);
   updateTysons(dt);
 }
 
@@ -1682,6 +1716,7 @@ function obstacleInterval(height) {
 }
 
 function updateWind(dt) {
+  if (tysonHazardPause().wind) return;
   state.wind.active = Math.max(0, state.wind.active - dt);
   if (state.stage < 4) return;
   if (state.wind.warning > 0) {
@@ -1710,10 +1745,11 @@ function applyWindHazards(direction) {
 }
 
 function updateFallingHazardSounds(dt) {
+  const paused = tysonHazardPause();
   const active = {
     beam: state.obstacles.some((item) => item.type === "b" ||
       (item.type === "e" && item.bounceState === "falling")),
-    dumbbell: state.obstacles.some((item) => item.type === "f"),
+    dumbbell: !paused.dumbbells && state.obstacles.some((item) => item.type === "f"),
     vase: state.obstacles.some((item) => item.type === "a"),
   };
   const sounds = {
@@ -1735,6 +1771,7 @@ function updateFallingHazardSounds(dt) {
 }
 
 function updateObstacles(dt) {
+  const paused = tysonHazardPause();
   updateWind(dt);
   updateObstacleActors(dt);
   state.spawnTimer -= dt;
@@ -1745,6 +1782,7 @@ function updateObstacles(dt) {
 
   const body = gridToScreen(state.climber.col, state.climber.row);
   for (const item of state.obstacles) {
+    if (paused.dumbbells && item.type === "f") continue;
     if (item.type !== "e" || item.bounceState === "falling") item.row -= item.speed * dt;
     item.sway += dt * 4;
     if (item.type === "e") {
@@ -1957,20 +1995,22 @@ function drawBuilding() {
   }
 
   if (state.stage >= tysonStartStage) {
-    const rows = tysonShaftRows();
-    for (const lane of Object.values(tysonLanes)) {
-      const x = buildingX + lane.columns[0] * colW + 4;
-      const width = colW * 2 - 8;
-      const bottom = gridToScreen(lane.columns[0], rows.bottom).y + cellH / 2;
-      const top = bottom - cellH * 8;
-      ctx.fillStyle = "#111719";
-      ctx.fillRect(x, top, width, cellH * 8);
-      ctx.fillStyle = "#59402d";
-      ctx.fillRect(x, top, 8, cellH * 8);
-      ctx.fillRect(x + width - 8, top, 8, cellH * 8);
-      ctx.fillStyle = "#26201c";
-      for (let y = top; y < bottom; y += cellH * 2) {
-        ctx.fillRect(x + 8, y + cellH - 4, width - 16, 4);
+    for (const shaftBottom of tysonBlockBottoms()) {
+      const rows = tysonShaftRows(shaftBottom);
+      for (const lane of Object.values(tysonLanes)) {
+        const x = buildingX + lane.columns[0] * colW + 4;
+        const width = colW * 2 - 8;
+        const bottom = gridToScreen(lane.columns[0], rows.bottom).y + cellH / 2;
+        const top = bottom - cellH * 8;
+        ctx.fillStyle = "#111719";
+        ctx.fillRect(x, top, width, cellH * 8);
+        ctx.fillStyle = "#59402d";
+        ctx.fillRect(x, top, 8, cellH * 8);
+        ctx.fillRect(x + width - 8, top, 8, cellH * 8);
+        ctx.fillStyle = "#26201c";
+        for (let y = top; y < bottom; y += cellH * 2) {
+          ctx.fillRect(x + 8, y + cellH - 4, width - 16, 4);
+        }
       }
     }
   }
@@ -2324,88 +2364,141 @@ function drawGroundEntrance() {
 
 function drawTrussBeam(x, y, palette) {
   ctx.fillStyle = palette.outline;
-  ctx.fillRect(x - 36, y - 17, 72, 34);
+  ctx.fillRect(x - 34, y - 15, 68, 6);
+  ctx.fillRect(x - 34, y + 9, 68, 6);
   ctx.fillStyle = palette.body;
-  ctx.fillRect(x - 32, y - 13, 64, 26);
+  ctx.fillRect(x - 30, y - 12, 60, 3);
+  ctx.fillRect(x - 30, y + 9, 60, 3);
   ctx.fillStyle = palette.highlight;
-  ctx.fillRect(x - 29, y - 10, 58, 4);
-  ctx.fillStyle = palette.outline;
-  ctx.fillRect(x - 32, y - 12, 64, 4);
-  ctx.fillRect(x - 32, y + 8, 64, 4);
+  ctx.fillRect(x - 27, y - 12, 54, 2);
+  ctx.fillRect(x - 27, y + 10, 54, 2);
   ctx.strokeStyle = palette.brace;
-  ctx.lineWidth = 4;
+  ctx.lineWidth = 5;
   ctx.beginPath();
-  for (let brace = -28; brace <= 20; brace += 16) {
+  for (let brace = -30; brace <= 18; brace += 16) {
     ctx.moveTo(x + brace, y + 8);
     ctx.lineTo(x + brace + 16, y - 8);
   }
   ctx.stroke();
   ctx.beginPath();
-  for (let brace = -28; brace <= 20; brace += 16) {
+  for (let brace = -30; brace <= 18; brace += 16) {
     ctx.moveTo(x + brace, y - 8);
     ctx.lineTo(x + brace + 16, y + 8);
   }
   ctx.stroke();
+
+  ctx.fillStyle = palette.highlight;
+  for (let joint = -30; joint <= 34; joint += 16) {
+    ctx.fillRect(x + joint - 2, y - 3, 4, 6);
+  }
 }
 
 function drawTransformerUnit(x, y) {
-  ctx.fillStyle = "#172126";
-  ctx.fillRect(x - 19, y - 18, 38, 38);
+  ctx.fillStyle = "#7a3928";
+  ctx.fillRect(x - 17, y - 4, 34, 21);
   ctx.fillStyle = "#c96e3b";
-  ctx.fillRect(x - 15, y - 2, 30, 19);
+  ctx.fillRect(x - 19, y - 7, 38, 7);
+  ctx.fillRect(x - 14, y, 28, 19);
   ctx.fillStyle = "#e08a4c";
-  ctx.fillRect(x - 11, y + 2, 22, 9);
+  ctx.fillRect(x - 10, y + 3, 20, 10);
+  ctx.fillStyle = "#593b26";
+  ctx.fillRect(x - 14, y - 3, 28, 5);
   ctx.fillStyle = "#63b96d";
-  ctx.fillRect(x - 12, y - 14, 10, 15);
-  ctx.fillRect(x + 2, y - 17, 11, 18);
+  ctx.fillRect(x - 15, y - 18, 10, 15);
+  ctx.fillRect(x - 4, y - 23, 10, 20);
+  ctx.fillRect(x + 7, y - 18, 10, 15);
   ctx.fillStyle = "#96d77f";
-  ctx.fillRect(x - 7, y - 10, 7, 9);
-  ctx.fillRect(x + 7, y - 13, 7, 12);
+  ctx.fillRect(x - 12, y - 15, 6, 9);
+  ctx.fillRect(x - 1, y - 20, 6, 10);
+  ctx.fillRect(x + 10, y - 15, 5, 8);
 }
 
 function drawToolModule(x, y) {
-  ctx.fillStyle = "#111719";
-  ctx.fillRect(x - 31, y - 9, 62, 18);
-  ctx.fillStyle = "#6e7782";
-  ctx.fillRect(x - 26, y - 4, 52, 8);
-  ctx.fillStyle = "#2c333a";
-  ctx.fillRect(x - 35, y - 17, 12, 34);
-  ctx.fillRect(x + 23, y - 17, 12, 34);
-  ctx.fillStyle = "#aeb8bf";
-  ctx.fillRect(x - 31, y - 13, 8, 26);
-  ctx.fillRect(x + 23, y - 13, 8, 26);
+  drawDumbbellSprite(ctx, x, y, 1);
+}
+
+function drawDumbbellSprite(context, x, y, scale = 1) {
+  context.save();
+  context.translate(x, y);
+  const rect = (left, top, width, height) => context.fillRect(
+    left * scale,
+    top * scale,
+    width * scale,
+    height * scale,
+  );
+
+  // Large, faceted weights keep the silhouette readable at window size.
+  context.fillStyle = "#111719";
+  rect(-39, -9, 13, 18);
+  rect(-36, -13, 7, 26);
+  rect(26, -9, 13, 18);
+  rect(29, -13, 7, 26);
+  context.fillStyle = "#3e4b55";
+  rect(-36, -8, 8, 16);
+  rect(-34, -11, 4, 22);
+  rect(28, -8, 8, 16);
+  rect(30, -11, 4, 22);
+  context.fillStyle = "#899ba5";
+  rect(-34, -8, 3, 13);
+  rect(30, -8, 3, 13);
+  context.fillStyle = "#d7e4e8";
+  rect(-33, -7, 2, 7);
+  rect(31, -7, 2, 7);
+
+  context.fillStyle = "#242d34";
+  rect(-28, -7, 56, 14);
+  context.fillStyle = "#6e7782";
+  rect(-26, -4, 52, 8);
+  context.fillStyle = "#c2d0d5";
+  rect(-16, -6, 32, 12);
+  context.fillStyle = "#eff5f4";
+  rect(-14, -4, 28, 3);
+  context.fillStyle = "#4a5963";
+  rect(-14, 2, 28, 3);
+  context.fillStyle = "#d6a83a";
+  rect(-22, -7, 4, 14);
+  rect(18, -7, 4, 14);
+  context.fillStyle = "#f2d46c";
+  rect(-21, -5, 2, 10);
+  rect(19, -5, 2, 10);
+  context.restore();
+}
+
+function drawTshirtSprite(context, x, y, scale = 1, rotation = 0) {
+  context.save();
+  context.translate(x, y);
+  context.rotate(rotation);
+  const rect = (left, top, width, height) => context.fillRect(
+    left * scale,
+    top * scale,
+    width * scale,
+    height * scale,
+  );
+  context.fillStyle = "#f4f1e7";
+  rect(-18, -13, 36, 36);
+  rect(-25, -15, 50, 10);
+  rect(-34, -12, 16, 17);
+  rect(18, -12, 16, 17);
+  context.fillStyle = "#ce3f39";
+  rect(-8, -15, 16, 5);
+  rect(-34, -12, 6, 14);
+  rect(28, -12, 6, 14);
+  rect(-4, -5, 8, 7);
+  rect(-14, 14, 28, 5);
+  context.fillStyle = "#121719";
+  rect(-5, -15, 10, 6);
+  context.fillStyle = "#d7d3c8";
+  rect(-7, 19, 14, 4);
+  context.restore();
 }
 
 function drawCableBundle(cable) {
   const p = gridToScreen(cable.col, cable.row);
-  ctx.save();
-  ctx.translate(p.x, p.y - 9);
-  ctx.fillStyle = "#121719";
-  ctx.fillRect(-27, -23, 54, 11);
-  ctx.fillStyle = "#f4f1e7";
-  ctx.fillRect(-23, -12, 46, 40);
-  ctx.fillRect(-37, -8, 14, 23);
-  ctx.fillRect(23, -8, 14, 23);
-  ctx.fillStyle = "#ce3f39";
-  ctx.fillRect(-11, -12, 22, 31);
-  ctx.fillRect(-19, 4, 38, 8);
-  ctx.fillStyle = "#d7d3c8";
-  ctx.fillRect(-8, 19, 16, 9);
-  ctx.restore();
+  drawTshirtSprite(ctx, p.x, p.y - 13, 1, -0.14);
 }
 
 function drawFallingCableBundle(x, y) {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(0.17);
-  ctx.fillStyle = "#f4f1e7";
-  ctx.fillRect(-20, -18, 40, 37);
-  ctx.fillRect(-32, -13, 12, 23);
-  ctx.fillRect(20, -13, 12, 23);
-  ctx.fillStyle = "#ce3f39";
-  ctx.fillRect(-9, -18, 18, 29);
-  ctx.fillRect(-16, -1, 32, 8);
-  ctx.restore();
+  drawTshirtSprite(ctx, x, y, 1, 0.17);
 }
 
 function drawToolDropper(resident) {
@@ -2413,26 +2506,46 @@ function drawToolDropper(resident) {
   const reveal = Math.min(1, resident.age / 0.2, (1.5 - resident.age) / 0.2);
   ctx.save();
   ctx.translate(p.x, p.y + 18 * (1 - reveal));
-  ctx.fillStyle = "#111719";
-  ctx.fillRect(-25, -34, 50, 60);
+
+  if (!resident.dropped) drawDumbbellSprite(ctx, 48, 4, 1);
+
+  // Face: hair, ears, eyes, nose and mouth remain legible even in a single window.
   ctx.fillStyle = "#c9825c";
-  ctx.fillRect(-12, -29, 24, 22);
+  ctx.fillRect(-12, -34, 24, 24);
+  ctx.fillRect(-16, -28, 5, 10);
+  ctx.fillRect(11, -28, 5, 10);
   ctx.fillStyle = "#151a1f";
-  ctx.fillRect(-14, -34, 28, 8);
+  ctx.fillRect(-14, -40, 28, 9);
+  ctx.fillRect(-15, -34, 8, 14);
+  ctx.fillRect(-7, -36, 20, 5);
   ctx.fillStyle = "#f6e15f";
-  ctx.fillRect(-6, -20, 4, 4);
-  ctx.fillRect(4, -20, 4, 4);
+  ctx.fillRect(-7, -26, 4, 4);
+  ctx.fillRect(4, -26, 4, 4);
+  ctx.fillStyle = "#111719";
+  ctx.fillRect(-6, -25, 2, 2);
+  ctx.fillRect(5, -25, 2, 2);
+  ctx.fillStyle = "#5a2f25";
+  ctx.fillRect(-1, -22, 4, 6);
+  ctx.fillRect(-5, -13, 10, 3);
+  ctx.fillStyle = "#a85d43";
+  ctx.fillRect(-3, -18, 6, 2);
   ctx.fillStyle = "#496575";
-  ctx.fillRect(-19, -5, 38, 31);
+  ctx.fillRect(-20, -8, 40, 34);
+  ctx.fillStyle = "#86a8b5";
+  ctx.fillRect(-5, -8, 10, 8);
+  ctx.fillStyle = "#d9e4e8";
+  ctx.fillRect(-9, -8, 18, 4);
   ctx.fillStyle = "#283841";
   ctx.fillRect(-19, 20, 38, 6);
   const handY = resident.dropped ? 18 : 2;
   ctx.fillStyle = "#c9825c";
-  ctx.fillRect(17, handY, 18, 8);
-  ctx.fillRect(29, handY + 8, 8, 14);
-  ctx.fillRect(-35, handY + 9, 18, 8);
-  ctx.fillRect(-36, handY + 17, 8, 12);
-  if (!resident.dropped) drawToolModule(48, 4);
+  ctx.fillRect(19, handY, 14, 9);
+  ctx.fillRect(29, handY + 8, 8, 15);
+  ctx.fillRect(-33, handY + 1, 14, 9);
+  ctx.fillRect(-37, handY + 9, 8, 15);
+  ctx.fillStyle = "#f0ae82";
+  ctx.fillRect(27, handY + 1, 8, 5);
+  ctx.fillRect(-35, handY + 2, 8, 5);
   ctx.restore();
 }
 
@@ -2689,32 +2802,30 @@ function drawSharpText(text, x, y, font, color, alpha = 1) {
 function drawStageHazardIcon(id, x, y) {
   const context = screenCtx;
   if (id === "vase") {
-    context.fillStyle = "#14272f"; context.fillRect(x - 23, y - 25, 46, 50);
-    context.fillStyle = "#6f97a3"; context.fillRect(x - 18, y - 20, 36, 40);
-    context.fillStyle = "#3faee0"; context.fillRect(x - 8, y - 14, 16, 28);
-    context.fillStyle = "#c8f4ff"; context.fillRect(x - 3, y - 10, 6, 13);
-    context.fillStyle = "#f0c64a"; context.fillRect(x - 18, y - 20, 36, 5); context.fillRect(x - 18, y + 15, 36, 5);
+    context.fillStyle = "#7a3928"; context.fillRect(x - 18, y - 3, 36, 25);
+    context.fillStyle = "#c96e3b"; context.fillRect(x - 21, y - 8, 42, 8); context.fillRect(x - 15, y, 30, 24);
+    context.fillStyle = "#e08a4c"; context.fillRect(x - 10, y + 4, 20, 11);
+    context.fillStyle = "#593b26"; context.fillRect(x - 15, y - 4, 30, 6);
+    context.fillStyle = "#63b96d"; context.fillRect(x - 17, y - 19, 11, 16); context.fillRect(x - 4, y - 25, 11, 21); context.fillRect(x + 8, y - 19, 10, 16);
+    context.fillStyle = "#96d77f"; context.fillRect(x - 14, y - 16, 5, 10); context.fillRect(x - 1, y - 21, 6, 11); context.fillRect(x + 11, y - 16, 5, 9);
   } else if (id === "beam" || id === "pinkBeam") {
-    const beam = id === "pinkBeam" ? "#5369b4" : "#6f97a3";
-    context.fillStyle = "#182126"; context.fillRect(x - 48, y - 12, 96, 24);
-    context.fillStyle = beam; context.fillRect(x - 44, y - 8, 88, 5); context.fillRect(x - 44, y + 4, 88, 5);
-    for (let brace = -34; brace <= 26; brace += 20) {
-      context.fillRect(x + brace, y - 4, 16, 5); context.fillRect(x + brace + 8, y, 5, 12);
+    const beam = id === "pinkBeam"
+      ? { outline: "#44243e", body: "#db5e91", highlight: "#ffb2d0", brace: "#7b365c" }
+      : { outline: "#26211a", body: "#d8aa38", highlight: "#f4d55a", brace: "#765a20" };
+    context.fillStyle = beam.outline; context.fillRect(x - 48, y - 13, 96, 6); context.fillRect(x - 48, y + 7, 96, 6);
+    context.fillStyle = beam.body; context.fillRect(x - 44, y - 10, 88, 3); context.fillRect(x - 44, y + 7, 88, 3);
+    context.fillStyle = beam.highlight; context.fillRect(x - 40, y - 10, 80, 2); context.fillRect(x - 40, y + 8, 80, 2);
+    context.strokeStyle = beam.brace; context.lineWidth = 4;
+    context.beginPath();
+    for (let brace = -42; brace <= 26; brace += 16) {
+      context.moveTo(x + brace, y + 6); context.lineTo(x + brace + 16, y - 9);
+      context.moveTo(x + brace, y - 6); context.lineTo(x + brace + 16, y + 9);
     }
+    context.stroke();
   } else if (id === "shirt") {
-    context.fillStyle = "#0c1920"; context.fillRect(x - 40, y - 26, 80, 8);
-    context.fillStyle = "#172f3b";
-    context.fillRect(x - 27, y - 18, 10, 48); context.fillRect(x - 5, y - 18, 10, 48); context.fillRect(x + 17, y - 18, 10, 48);
-    context.fillStyle = "#3faee0";
-    context.fillRect(x - 24, y - 18, 4, 42); context.fillRect(x - 2, y - 18, 4, 42); context.fillRect(x + 20, y - 18, 4, 42);
-    context.fillStyle = "#f0c64a";
-    context.fillRect(x - 32, y + 23, 18, 11); context.fillRect(x - 10, y + 23, 18, 11); context.fillRect(x + 12, y + 23, 18, 11);
+    drawTshirtSprite(context, x, y - 2, 0.78);
   } else if (id === "dumbbell") {
-    context.fillStyle = "#18252c"; context.fillRect(x - 29, y - 20, 58, 40);
-    context.fillStyle = "#ff8d3a"; context.fillRect(x - 24, y - 16, 48, 32);
-    context.fillStyle = "#cf542f"; context.fillRect(x - 18, y - 11, 36, 22);
-    context.fillStyle = "#b9d4d8"; context.fillRect(x - 34, y - 11, 10, 22); context.fillRect(x + 24, y - 11, 10, 22);
-    context.fillStyle = "#47c0e6"; context.fillRect(x - 6, y - 6, 12, 12);
+    drawDumbbellSprite(context, x, y, 1.1);
   } else if (id === "bird") {
     context.fillStyle = "#111d25"; context.fillRect(x - 40, y - 8, 80, 16); context.fillRect(x - 24, y - 19, 48, 36);
     context.fillStyle = "#526976"; context.fillRect(x - 45, y - 18, 22, 5); context.fillRect(x + 23, y - 18, 22, 5); context.fillRect(x - 37, y - 23, 6, 14); context.fillRect(x + 31, y - 23, 6, 14);

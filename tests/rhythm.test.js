@@ -571,13 +571,72 @@ test('T-shirts, dumbbells and birds use distinct silhouettes', () => {
   const toolModule = source.slice(source.indexOf('function drawToolModule'), source.indexOf('function drawCableBundle'));
   assert.match(source, /function drawCableBundle\(/);
   assert.match(source, /function drawFallingCableBundle\(/);
-  assert.match(source, /ctx\.fillRect\(-37, -8, 14, 23\)/);
+  assert.match(source, /function drawTshirtSprite\(/);
   assert.match(source, /function drawToolDropper\(/);
-  assert.match(source, /drawToolModule\(48, 4\)/);
+  assert.match(source, /drawDumbbellSprite\(ctx, 48, 4, 1\)/);
   assert.match(source, /const wingUp = Math\.sin\(bird\.age \* 20\) > 0/);
   assert.match(source, /ctx\.fillRect\(-23, -10, 42, 22\)/);
   assert.match(transformer, /#c96e3b/);
   assert.match(toolModule, /#6e7782/);
+});
+
+test('stage 1 vase and steel beam use transparent readable silhouettes', () => {
+  const source = fs.readFileSync('src/main.js', 'utf8');
+  const beam = source.slice(source.indexOf('function drawTrussBeam'), source.indexOf('function drawTransformerUnit'));
+  const vase = source.slice(source.indexOf('function drawTransformerUnit'), source.indexOf('function drawToolModule'));
+  const briefingIcons = source.slice(source.indexOf('function drawStageHazardIcon'), source.indexOf('function drawStageHazardBriefing'));
+  assert.match(beam, /palette\.brace/);
+  assert.match(beam, /ctx\.lineTo\(x \+ brace \+ 16, y - 8\)/);
+  assert.match(beam, /ctx\.lineTo\(x \+ brace \+ 16, y \+ 8\)/);
+  assert.doesNotMatch(beam, /fillRect\(x - 36, y - 17, 72, 34\)/);
+  assert.match(vase, /#c96e3b/);
+  assert.match(vase, /#63b96d/);
+  assert.doesNotMatch(vase, /#172126/);
+  assert.match(briefingIcons, /context\.lineTo\(x \+ brace \+ 16, y - 9\)/);
+  assert.match(briefingIcons, /#c96e3b/);
+  assert.doesNotMatch(briefingIcons, /#14272f/);
+});
+
+test('stage 2 briefing and actors share the white and red T-shirt and readable thrower design', () => {
+  const source = fs.readFileSync('src/main.js', 'utf8');
+  const shirt = source.slice(source.indexOf('function drawTshirtSprite'), source.indexOf('function drawToolDropper'));
+  const thrower = source.slice(source.indexOf('function drawToolDropper'), source.indexOf('function drawObstacles'));
+  const briefingIcons = source.slice(source.indexOf('function drawStageHazardIcon'), source.indexOf('function drawStageHazardBriefing'));
+  assert.match(shirt, /#f4f1e7/);
+  assert.match(shirt, /#ce3f39/);
+  assert.match(shirt, /rect\(-34, -12, 16, 17\)/);
+  assert.match(thrower, /#c9825c/);
+  assert.match(thrower, /#496575/);
+  assert.match(briefingIcons, /drawTshirtSprite\(context, x, y - 2, 0\.78\)/);
+});
+
+test('stage 2 briefing dumbbell matches the in-game dumbbell palette and T-shirt has detailed trim', () => {
+  const source = fs.readFileSync('src/main.js', 'utf8');
+  const shirt = source.slice(source.indexOf('function drawTshirtSprite'), source.indexOf('function drawToolDropper'));
+  const briefingIcons = source.slice(source.indexOf('function drawStageHazardIcon'), source.indexOf('function drawStageHazardBriefing'));
+  assert.match(shirt, /#ce3f39.*rect\(-34, -12, 6, 14\)/s);
+  assert.match(shirt, /#ce3f39.*rect\(28, -12, 6, 14\)/s);
+  assert.match(source, /function drawDumbbellSprite\(context, x, y, scale = 1\)/);
+  assert.match(source, /#d6a83a/);
+  assert.match(briefingIcons, /drawDumbbellSprite\(context, x, y, 1\.1\)/);
+});
+
+test('stage 2 briefing and in-game T-shirts share one sprite renderer', () => {
+  const source = fs.readFileSync('src/main.js', 'utf8');
+  const briefingIcons = source.slice(source.indexOf('function drawStageHazardIcon'), source.indexOf('function drawStageHazardBriefing'));
+  assert.match(source, /function drawTshirtSprite\(context, x, y, scale = 1, rotation = 0\)/);
+  assert.match(source, /drawTshirtSprite\(ctx, p\.x, p\.y - 13, 1, -0\.14\)/);
+  assert.match(source, /drawTshirtSprite\(ctx, x, y, 1, 0\.17\)/);
+  assert.match(briefingIcons, /drawTshirtSprite\(context, x, y - 2, 0\.78\)/);
+});
+
+test('shared T-shirt sprite prioritizes a readable sleeve, body and neckline silhouette', () => {
+  const source = fs.readFileSync('src/main.js', 'utf8');
+  const shirt = source.slice(source.indexOf('function drawTshirtSprite'), source.indexOf('function drawCableBundle'));
+  assert.match(shirt, /rect\(-18, -13, 36, 36\)/);
+  assert.match(shirt, /rect\(-34, -12, 16, 17\)/);
+  assert.match(shirt, /rect\(18, -12, 16, 17\)/);
+  assert.match(shirt, /rect\(-5, -15, 10, 6\)/);
 });
 
 test('T-shirts and birds do not appear before their configured stages', () => {
@@ -639,21 +698,61 @@ test('stage six creates eight-floor Tyson shafts and punches across the expected
   assert.equal(run('windowOpen(1, 40)'), false);
   run('getWindow(4, 10).openness = 1;');
   assert.equal(run('windowOpen(4, 10)'), true);
-  run(`state.mode = 'play'; state.lives = 3; state.climber = { col: 4, row: 10, hurtTimer: 0, freezeTimer: 0 };
-    state.hands.left = { col: 4, row: 10 }; state.hands.right = { col: 4, row: 10 };
-    state.tysons = [{ lane: 'left', row: 10, phase: 'jab', reach: 2, phaseTime: 0, moveTimer: 1, hit: false }];
+  run(`state.mode = 'play'; state.lives = 3; state.climber = { col: 4, row: 44, hurtTimer: 0, freezeTimer: 0 };
+    state.hands.left = { col: 4, row: 44 }; state.hands.right = { col: 4, row: 44 };
+    state.tysons = [{ lane: 'left', row: 43, blockBottom: 40, phase: 'jab', reach: 2, phaseTime: 0, moveTimer: 1, hit: false }];
     updateTysons(0.13);`);
   assert.equal(run('state.mode'), 'falling');
   assert.equal(run('state.lives'), 2);
   assert.equal(run("tysonPunchEndCol({ lane: 'right', reach: 6 })"), 0);
 });
 
+test('stage six fixes Tyson shafts at 40F, 100F and 160F', () => {
+  const run = game();
+  run('state.stage = 6;');
+  for (const bottom of [40, 100, 160]) {
+    assert.equal(run(`isTysonShaftCell(1, ${bottom}) && isTysonShaftCell(2, ${bottom + 7})`), true);
+    assert.equal(run(`isTysonShaftCell(5, ${bottom}) && isTysonShaftCell(6, ${bottom + 7})`), true);
+    assert.equal(run(`isTysonShaftCell(1, ${bottom - 1})`), false);
+  }
+});
+
+test('Tyson enters when its block reaches the screen top, before the climber reaches it', () => {
+  const run = game();
+  run('state.stage = 6; state.climber.row = 28; state.camera = 27.4; state.tysons = []; updateTysons(0.01);');
+  assert.equal(run('state.tysons.length'), 0);
+  run('state.camera = 27.6; updateTysons(0.01);');
+  assert.equal(run('state.tysons.length'), 1);
+  assert.equal(run('state.tysons[0].blockBottom'), 40);
+});
+
+test('Tyson blocks pause the specified obstacle families while active', () => {
+  const run = game();
+  run(`state.stage = 6; state.camera = 0; state.stageTarget = 175;
+    state.climber.row = 40; state.birds = [{ x: 300, y: 60, direction: 1, age: 0, dropTimer: 1 }];
+    state.residents = [{ col: 3, row: 44, age: 0, dropped: false }];
+    state.snipers = [{ col: 1, row: 44, age: 0, target: null, fired: false }];
+    state.wind = { timeUntil: 2, warning: 0, direction: 0, active: 0 }; updateWind(1); updateObstacleActors(1);`);
+  assert.equal(run('tysonHazardPause().wind'), true);
+  assert.equal(run('tysonHazardPause().snipers'), true);
+  assert.equal(run('state.wind.timeUntil'), 2);
+  assert.equal(run('state.birds[0].age'), 0);
+  assert.equal(run('state.residents[0].age'), 0);
+  assert.equal(run('state.snipers[0].age'), 0);
+  run('state.climber.row = 100; state.camera = 95; state.snipers = []; Math.random = () => 0.01; spawnObstacle();');
+  assert.equal(run('tysonHazardPause().birds && tysonHazardPause().dumbbells'), true);
+  assert.equal(run('tysonHazardPause().snipers'), false);
+  assert.equal(run('state.snipers.length'), 1);
+  run('state.climber.row = 160;');
+  assert.equal(run('tysonHazardPause().birds || tysonHazardPause().dumbbells || tysonHazardPause().snipers || tysonHazardPause().wind'), false);
+});
+
 test('Tyson standby is safe and only jab or straight applies a punch hit', () => {
   const run = game();
   run(`state.mode = 'play'; state.stage = 6; state.lives = 3;
-    state.climber = { col: 4, row: 10, hurtTimer: 0, freezeTimer: 0 };
-    state.hands.left = { col: 4, row: 10 }; state.hands.right = { col: 4, row: 10 };
-    state.tysons = [{ lane: 'left', row: 10, phase: 'standby', reach: 2, phaseTime: 0, moveTimer: 1, hit: false }];
+    state.climber = { col: 4, row: 44, hurtTimer: 0, freezeTimer: 0 };
+    state.hands.left = { col: 4, row: 44 }; state.hands.right = { col: 4, row: 44 };
+    state.tysons = [{ lane: 'left', row: 43, blockBottom: 40, phase: 'standby', reach: 2, phaseTime: 0, moveTimer: 1, hit: false }];
     updateTysons(0.01);`);
   assert.equal(run('state.mode'), 'play');
   assert.equal(run('state.lives'), 3);
@@ -672,12 +771,21 @@ test('Tyson jab only hits on its second and third animation frames', () => {
   assert.equal(run("tysonPunchCanHit({ phase: 'jab', phaseTime: 0.25 })"), true);
 });
 
+test('Tyson punch collision is one window above the boxer row', () => {
+  const run = game();
+  run(`state.climber = { col: 4, row: 43 }; state.hands.left = { col: 4, row: 43 };
+    state.hands.right = { col: 4, row: 43 };`);
+  assert.equal(run("tysonPunchHitsClimber({ lane: 'left', row: 43, reach: 2 })"), false);
+  run('state.climber.row = 44; state.hands.left.row = 44; state.hands.right.row = 44;');
+  assert.equal(run("tysonPunchHitsClimber({ lane: 'left', row: 43, reach: 2 })"), true);
+});
+
 test('Tyson jab leaves the far safety lane open while straight reaches it', () => {
   const run = game();
   run(`state.mode = 'play'; state.stage = 6; state.lives = 3;
-    state.climber = { col: 7, row: 10, hurtTimer: 0, freezeTimer: 0 };
-    state.hands.left = { col: 7, row: 10 }; state.hands.right = { col: 7, row: 10 };
-    state.tysons = [{ lane: 'left', row: 10, phase: 'jab', reach: 2, phaseTime: 0.12, moveTimer: 1 }];
+    state.climber = { col: 7, row: 44, hurtTimer: 0, freezeTimer: 0 };
+    state.hands.left = { col: 7, row: 44 }; state.hands.right = { col: 7, row: 44 };
+    state.tysons = [{ lane: 'left', row: 43, blockBottom: 40, phase: 'jab', reach: 2, phaseTime: 0.12, moveTimer: 1 }];
     updateTysons(0.01);`);
   assert.equal(run('state.mode'), 'play');
   run("state.tysons[0].phase = 'straight'; state.tysons[0].reach = 6; state.tysons[0].phaseTime = 0; updateTysons(0.01);");
@@ -697,9 +805,9 @@ test('Tyson straight is dangerous across six cells during all three animation fr
   for (const col of [4, 7]) {
     const hitRun = game();
     hitRun(`state.mode = 'play'; state.stage = 6; state.lives = 3;
-      state.climber = { col: ${col}, row: 10, hurtTimer: 0, freezeTimer: 0 };
-      state.hands.left = { col: ${col}, row: 10 }; state.hands.right = { col: ${col}, row: 10 };
-      state.tysons = [{ lane: 'left', row: 10, phase: 'straight', reach: 6, phaseTime: 0, moveTimer: 1 }];
+      state.climber = { col: ${col}, row: 44, hurtTimer: 0, freezeTimer: 0 };
+      state.hands.left = { col: ${col}, row: 44 }; state.hands.right = { col: ${col}, row: 44 };
+      state.tysons = [{ lane: 'left', row: 43, blockBottom: 40, phase: 'straight', reach: 6, phaseTime: 0, moveTimer: 1 }];
       updateTysons(0.01);`);
     assert.equal(hitRun('state.mode'), 'falling');
   }
@@ -1034,6 +1142,20 @@ test('dumbbell thrower uses a readable person and equipment palette', () => {
   assert.equal(run("window.colors.includes('#6e7782')"), true);
 });
 
+test('dumbbell and thrower show distinct grips, weights, face and hands', () => {
+  const source = fs.readFileSync('src/main.js', 'utf8');
+  const dumbbell = source.slice(source.indexOf('function drawToolModule'), source.indexOf('function drawTshirtSprite'));
+  const thrower = source.slice(source.indexOf('function drawToolDropper'), source.indexOf('function drawObstacles'));
+  assert.match(dumbbell, /drawDumbbellSprite\(ctx, x, y, 1\)/);
+  assert.match(source, /function drawDumbbellSprite\(context, x, y, scale = 1\)/);
+  assert.match(source, /rect\(-16, -6, 32, 12\)/);
+  assert.match(source, /rect\(-39, -9, 13, 18\)/);
+  assert.match(source, /rect\(26, -9, 13, 18\)/);
+  assert.match(thrower, /ctx\.fillRect\(-12, -34, 24, 24\)/);
+  assert.match(thrower, /ctx\.fillRect\(19, handY, 14, 9\)/);
+  assert.match(thrower, /ctx\.fillRect\(-33, handY \+ 1, 14, 9\)/);
+});
+
 test('title input stays locked for half a second after game over return', () => {
   const run = game();
   run('startMusic = () => {}; state.mode = "title"; state.titleInputLock = 0.5; navigator = { getGamepads: () => [] }; state.keys.add("Space"); update(0.1)');
@@ -1152,14 +1274,13 @@ test('stage targets increase by 25 floors and begin with an obstacle briefing', 
   assert.equal(run('state.stageTarget'), 100);
 });
 
-test('test stage selection starts the chosen building from its normal briefing', () => {
-  const run = game();
-  run('state.music.context = null; resetGame(6);');
-  assert.equal(run('state.stage'), 6);
-  assert.equal(run('state.stageTarget'), 175);
-  assert.equal(run('state.height'), 5);
-  assert.equal(run('state.stageStartHeight'), 5);
-  assert.equal(run('state.mode'), 'briefing');
+test('title screen has no test-stage selection controls or start entry point', () => {
+  const html = fs.readFileSync('index.html', 'utf8');
+  const source = fs.readFileSync('src/main.js', 'utf8');
+  const styles = fs.readFileSync('src/styles.css', 'utf8');
+  assert.doesNotMatch(html, /stageSelect|TEST BUILDING|START TEST/);
+  assert.doesNotMatch(source, /function startSelectedStage\s*\(/);
+  assert.doesNotMatch(styles, /\.stage-select/);
 });
 
 test('stage briefing lasts 1.5 seconds and can be skipped into the entry sequence', () => {
