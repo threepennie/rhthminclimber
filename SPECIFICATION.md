@@ -16,6 +16,7 @@
 | 音声 | Web Audioの合成BGM・効果音と録音Hi |
 | 保存 | セーブ・ランキング・永続的な設定保存・オンライン連携なし |
 | URL | http://127.0.0.1:4283/。4173は別プロジェクト用 |
+| 公開 | GitHub Pagesでは `https://threepennie.github.io/rhthminclimber/` を公開先とする。相対パスで素材を参照し、GitHub Actionsから静的ファイル一式を配信する。 |
 
 ### タイトルからの開始
 

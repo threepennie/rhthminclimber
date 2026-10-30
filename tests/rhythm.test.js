@@ -17,12 +17,12 @@ test('game renderer keeps high resolution with a coarse grid and thick pixel-lik
   assert.match(source, /function drawSharpTextLayer\(\)/);
   assert.match(source, /screenCtx\.fillText/);
   assert.match(styles, /width: min\(100%, 960px\)/);
-  assert.match(index, /id="birdBriefing" src="\/assets\/images\/bird-briefing\.png"/);
+  assert.match(index, /id="birdBriefing" src="assets\/images\/bird-briefing\.png"/);
   assert.match(index, /rhythmic-climber-title-v3\.png/);
-  assert.match(index, /id="sniperLeft" src="\/assets\/images\/sniper-left\.png"/);
-  assert.match(index, /id="sniperRight" src="\/assets\/images\/sniper-right\.png"/);
-  assert.match(index, /id="tysonL01" src="\/assets\/images\/tyson-l01\.png"/);
-  assert.match(index, /id="tysonStraight03" src="\/assets\/images\/tyson-straight-03\.png"/);
+  assert.match(index, /id="sniperLeft" src="assets\/images\/sniper-left\.png"/);
+  assert.match(index, /id="sniperRight" src="assets\/images\/sniper-right\.png"/);
+  assert.match(index, /id="tysonL01" src="assets\/images\/tyson-l01\.png"/);
+  assert.match(index, /id="tysonStraight03" src="assets\/images\/tyson-straight-03\.png"/);
   assert.match(source, /function drawSharpSniperSprites\(/);
   assert.match(source, /function drawSharpTysonSprites\(/);
   assert.match(source, /const briefingShirtRed = "#c83f3a"/);
@@ -1281,6 +1281,15 @@ test('title screen has no test-stage selection controls or start entry point', (
   assert.doesNotMatch(html, /stageSelect|TEST BUILDING|START TEST/);
   assert.doesNotMatch(source, /function startSelectedStage\s*\(/);
   assert.doesNotMatch(styles, /\.stage-select/);
+});
+
+test('GitHub Pages deployment keeps game assets relative to the repository path', () => {
+  const html = fs.readFileSync('index.html', 'utf8');
+  const workflow = fs.readFileSync('.github/workflows/deploy-pages.yml', 'utf8');
+  assert.doesNotMatch(html, /src="\/assets\//);
+  assert.match(workflow, /codex\/restore-stage5-sniper-era/);
+  assert.match(workflow, /actions\/upload-pages-artifact@v4/);
+  assert.match(workflow, /actions\/deploy-pages@v4/);
 });
 
 test('stage briefing lasts 1.5 seconds and can be skipped into the entry sequence', () => {
